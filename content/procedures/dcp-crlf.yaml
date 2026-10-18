@@ -1,43 +1,27 @@
 id: dcp-crlf
 theme: DCP & ingest
 titre: 'DCP refusé à l’ingest : XML modifié (CRLF)'
-quand: Le DCP est sur la clé, le LMS ou un autre serveur, mais l’ingest échoue (mismatch de taille ou de hash), souvent après un envoi FTP.
-comprendre: 'Chaque fichier d’un DCP a une taille et une empreinte (hash SHA-1) inscrites dans la PKL. Un transfert FTP en mode ASCII remplace les fins de ligne Unix (LF) par des fins Windows (CRLF) : le XML grossit d’un octet par ligne, son hash change et le serveur refuse le DCP. En retirant les CR, on retrouve le fichier d’origine, et on le prouve en comparant taille et hash avec la PKL.'
-
+quand: 'Le DCP est sur la clé, le LMS ou un autre serveur, mais l’ingest échoue (mismatch de taille ou de hash), souvent après un envoi FTP.'
+symptomes: [ingest refusé, hash, size mismatch, crlf, ftp ascii]
+comprendre: |
+  Chaque fichier d’un DCP a une taille et une empreinte (hash SHA-1) inscrites dans la PKL. Un transfert FTP en mode ASCII remplace les fins de ligne Unix (LF) par des fins Windows (CRLF) : le XML grossit d’un octet par ligne, son hash change et le serveur refuse le DCP. En retirant les CR, on retrouve le fichier d’origine, et on le prouve en comparant taille et hash avec la PKL.
 etapes:
-  - titre: L’erreur d’ingest
-    machine: dor
-    commande: |-
-      grep -hiE "ingest errors|hash|size mismatch" /doremi/log/*.log | tail -20
-    attendu: Le fichier en cause, le plus souvent la CPL
-
-  - titre: Fichiers du DCP
-    machine: lin
-    commande: |-
-      ls -la {DCP_DIR}
-    attendu: Tailles réelles
-
-  - titre: Ce qu’annonce la PKL
-    machine: lin
-    commande: |-
-      grep -iE "<Id>|<Size>|<Hash>|OriginalFileName" $(grep -l "PackingList" {DCP_DIR}/*.xml | head -1)
-    attendu: Taille et hash attendus pour chaque fichier
-
-  - titre: Caractères CR dans les XML
-    machine: lin
-    commande: |-
-      for f in {DCP_DIR}/*.xml; do echo "$(tr -cd '\r' < "$f" | wc -c) CR  $f"; done
-    attendu: Un nombre > 0 = fichier converti (le nombre de CR = l’écart de taille)
-
-  - titre: Copie corrigée dans /tmp
-    machine: lin
-    niveau: action
-    commande: |-
-      F={DCP_DIR}/NOM_DU_FICHIER.xml ; tr -d '\r' < "$F" > /tmp/$(basename "$F") ; wc -c < /tmp/$(basename "$F") ; openssl sha1 -binary /tmp/$(basename "$F") | openssl base64
-    attendu: Taille ET hash identiques à la PKL = fichier d’origine retrouvé
-
+  - ref: ingests-en-echec
+    titre: L’erreur d’ingest
+    attendu: 'Le fichier en cause, le plus souvent la CPL'
+  - ref: fichiers-du-dcp
+    titre: Fichiers du DCP
+    attendu: 'Tailles réelles'
+  - ref: ce-qu-annonce-la-pkl
+    titre: Ce qu’annonce la PKL
+    attendu: 'Taille et hash attendus pour chaque fichier'
+  - ref: fins-de-ligne-windows-cr-dans-les-xml
+    titre: Caractères CR dans les XML
+    attendu: 'Un nombre > 0 = fichier converti (le nombre de CR = l’écart de taille)'
+  - ref: copie-corrigee-sans-cr
+    titre: Copie corrigée dans /tmp
+    attendu: 'Taille ET hash identiques à la PKL = fichier d’origine retrouvé'
   - titre: Ingest avec la copie corrigée
     machine: man
     consigne: 'Dossier de travail dans /tmp : copies de ASSETMAP, VOLINDEX et PKL, liens symboliques (ln -s) vers les MXF d’origine, et la CPL corrigée. Puis procédure « Ingest manuel sur un Doremi ».'
-
 attention: 'Ne jamais modifier les fichiers d’origine. Toutes les copies issues du même envoi (autres salles, LMS) sont probablement abîmées. Demander au client d’envoyer les DCP en mode binaire (FileZilla : Transfert › Type de transfert › Binaire).'

@@ -1,16 +1,18 @@
 id: gw-temp
 theme: Réseau
 titre: Passerelle temporaire pour corriger un équipement
-quand: Le PC du site doit joindre un équipement parti dans un autre réseau (Communicator).
-comprendre: 'L’ORC prend un instant l’adresse de la passerelle que cherche l’équipement : le PC du site peut alors le joindre pour le reconfigurer. Tout doit être retiré à la fin.'
-
+quand: 'Le PC du site doit joindre un équipement parti dans un autre réseau (Communicator).'
+symptomes: [passerelle, communicator, équipement perdu]
+comprendre: |
+  L’ORC prend un instant l’adresse de la passerelle que cherche l’équipement : le PC du site peut alors le joindre pour le reconfigurer. Tout doit être retiré à la fin.
+copier_tout: false
 etapes:
   - titre: Prendre l’IP de sa passerelle
     machine: orc
     niveau: action
     commande: |-
       ip addr add {BAD_GW}/24 dev {IF}
-
+    attendu: 'Pas d’erreur'
   - titre: Laisser passer son trafic
     machine: orc
     niveau: action
@@ -18,13 +20,15 @@ etapes:
       iptables -I FORWARD 1 -d {BAD_IP} -j ACCEPT
       iptables -I FORWARD 1 -s {BAD_IP} -j ACCEPT
       sysctl -w net.ipv4.conf.all.send_redirects=0 net.ipv4.conf.{IF}.send_redirects=0
-    attendu: Le PC du site (route via l’ORC) joint l’équipement
-
+    attendu: 'Le PC du site (route via l’ORC) joint l’équipement'
+  - ref: route-temporaire-via-l-orc
+    titre: Route sur le PC
   - titre: Corriger l’équipement
     machine: man
     consigne: 'Depuis le PC : Communicator ou interface web, remettre l’IP prévue.'
-
-  - titre: Tout retirer
+  - ref: supprimer-la-route
+    titre: Retirer la route du PC
+  - titre: Tout retirer sur l’ORC
     machine: orc
     niveau: action
     commande: |-
@@ -32,12 +36,10 @@ etapes:
       iptables -D FORWARD -s {BAD_IP} -j ACCEPT
       ip addr del {BAD_GW}/24 dev {IF}
       sysctl -w net.ipv4.conf.all.send_redirects=1 net.ipv4.conf.{IF}.send_redirects=1
-    attendu: Nettoyage obligatoire
-
+    attendu: 'Nettoyage obligatoire'
   - titre: Vérifier
     machine: lin
     commande: |-
       ping -c 3 {IP} ; ip neigh show {IP} ; ping -c 2 -W 1 {BAD_IP}
-    attendu: Bonne MAC sur la nouvelle IP, l’ancienne ne répond plus
-
-attention: Ne jamais lancer netfilter-persistent save.
+    attendu: 'Bonne MAC sur la nouvelle IP, l’ancienne ne répond plus'
+attention: 'Ne jamais lancer netfilter-persistent save.'

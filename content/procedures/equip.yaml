@@ -1,30 +1,20 @@
 id: equip
 theme: Réseau
 titre: 'Équipement non détecté : diagnostic express'
-quand: Alerte DEVICE_OFFLINE ou équipement grisé dans le TMS.
-comprendre: 'Quatre questions dans l’ordre : répond-il ? qui répond (MAC) ? ses services sont-ils ouverts ? le TMS l’attend-il à cette IP ?'
-
+quand: 'Alerte DEVICE_OFFLINE ou équipement grisé dans le TMS.'
+symptomes: [device_offline, grisé, équipement absent, projecteur absent]
+comprendre: |
+  Quatre questions dans l’ordre : répond-il ? qui répond (MAC) ? ses services sont-ils ouverts ? le TMS l’attend-il à cette IP ? La réponse à chacune oriente vers le bon correctif (câble, IP, service, configuration du TMS).
 etapes:
-  - titre: Joignable ?
-    machine: lin
-    commande: |-
-      ping -c 3 {IP}
-    attendu: Réponses = vivant
-
-  - titre: Quelle MAC ?
-    machine: lin
-    commande: |-
-      ip neigh show {IP}
-    attendu: FAILED = rien ne répond ; la MAC dit qui est là
-
-  - titre: Quels ports ?
-    machine: lin
-    commande: |-
-      for p in 22 80 43728 43758; do timeout 2 bash -c "</dev/tcp/{IP}/$p" && echo "$p OK" || echo "$p KO"; done
-    attendu: 43758 OK = API IMS/ICMP joignable
-
-  - titre: Quelle salle dans le TMS ?
-    machine: tms
-    commande: |-
-      mongo --quiet ytms --eval 'db.booths.find({"devices.ipAddress":"{IP}"},{name:1,number:1}).forEach(printjson)'
-    attendu: La salle qui attend cette IP
+  - ref: ping
+    titre: Joignable ?
+    attendu: 'Réponses = vivant'
+  - ref: mac-de-l-equipement
+    titre: Quelle MAC ?
+  - ref: ports-sans-nmap
+    titre: Quels ports ?
+    attendu: '43758 OK = API IMS/ICMP joignable'
+  - ref: quelle-salle-a-cette-ip
+    titre: Quelle salle dans le TMS ?
+    attendu: 'La salle qui attend cette IP'
+attention: 'Alertes DEVICE_OFFLINE la nuit = projecteurs éteints, normal.'

@@ -1,55 +1,33 @@
 id: extra-bloque
 theme: Stockage
 titre: extra_exchange bloqué ou inbox jamais vidée
-quand: Inbox Eclair / IDC qui grossit, passages de plusieurs heures, « lock file exist ».
-comprendre: 'extra_exchange tourne toutes les 15 minutes et pose un verrou pendant son passage. Si un passage plante, le verrou reste et tous les suivants abandonnent : l’inbox n’est plus traitée. On vérifie qu’aucun passage ne tourne avant de retirer le verrou.'
-
+quand: 'Inbox Eclair / IDC qui grossit, passages de plusieurs heures, « lock file exist ».'
+symptomes: [extra_exchange, verrou, lock, inbox pleine]
+comprendre: |
+  extra_exchange tourne toutes les 15 minutes et pose un verrou pendant son passage. Si un passage plante, le verrou reste et tous les suivants abandonnent : l’inbox n’est plus traitée. On vérifie qu’aucun passage ne tourne avant de retirer le verrou, et on cherche le DCP qui fait planter le script.
 etapes:
-  - titre: Process en cours
-    machine: lms
-    commande: |-
-      \ps -eo pid,etime,args | grep [e]xtra_exchange
-    attendu: Durée (etime) de plusieurs heures = boucle
-
-  - titre: Verrou
-    machine: lms
-    commande: |-
-      ls -l /tmp/.extra_receive.lock 2>&1
-    attendu: Date du verrou = début du passage en cours ou planté
-
-  - titre: Derniers passages
-    machine: lms
-    commande: |-
-      grep -E "STARTING NEW|End IMPORT" /var/log/extra_exchange.log | tail -8
-    attendu: « Exiting » toutes les 15 min = bloqué
-
-  - titre: Étapes activées
-    machine: lms
-    commande: |-
-      grep -E "^(IMPORT|EXPORT)_VIA_[A-Z]+=" /etc/ymagis/extra_exchange.conf
+  - ref: process-en-cours-et-duree
+    titre: Process en cours
+    attendu: 'Durée (etime) de plusieurs heures = boucle'
+  - ref: verrou
+    titre: Verrou
+    attendu: 'Date du verrou = début du passage en cours ou planté'
+  - ref: derniers-passages
+    titre: Derniers passages
+    attendu: '« Exiting » toutes les 15 min = bloqué'
+  - ref: etapes-activees
+    titre: Étapes activées
     attendu: 'IMPORT_VIA_ECLAIR=NO = Eclair jamais purgé par le script : purge manuelle + N3'
-
-  - titre: DCP en échec en boucle
-    machine: lms
-    commande: |-
-      grep -E "FAILED|alert|unchanged" /var/log/extra_exchange.log | tail -20
-    attendu: Même DCP à chaque passage = DCP mort à purger (avec accord client)
-
-  - titre: XML mal formés
-    machine: lms
-    commande: |-
-      sudo find /opt/lms-ymagis/view/eclair/inbox /opt/lms-ymagis/view/idc/inbox -maxdepth 2 -type f \( -iname "*.xml" -o -iname ASSETMAP -o -iname VOLINDEX \) -exec sh -c 'c=$(head -c1 "$1"); [ "$c" != "<" ] && echo "$1"' _ {} \;
-    attendu: Aucune ligne = pas de fichier bloquant
-
-  - titre: Retirer un verrou planté
-    machine: lms
-    niveau: action
-    commande: |-
-      \ps -eo pid,args | grep -q [e]xtra_exchange && echo "Passage en cours : ne rien toucher" || rm -vf /tmp/.extra_receive.lock
-    attendu: « removed » seulement si aucun passage ne tourne
-
+  - ref: dcp-en-echec-en-boucle
+    titre: DCP en échec en boucle
+    attendu: 'Même DCP à chaque passage = DCP mort à purger (avec accord client)'
+  - ref: xml-d-inbox-mal-formes
+    titre: XML mal formés
+  - ref: retirer-un-verrou-plante
+    titre: Retirer un verrou planté
+    attendu: '« removed » seulement si aucun passage ne tourne'
   - titre: Contrôle au passage suivant
     machine: lms
     commande: |-
-      grep -E "STARTING NEW|End IMPORT process via IDC" /var/log/extra_exchange.log | tail -4
-    attendu: Un STARTING NEW sans Exiting puis un End IMPORT quelques secondes ou minutes après
+      grep -E "STARTING NEW|End IMPORT process via IDC|Exiting" /var/log/extra_exchange.log | tail -4
+    attendu: 'Un STARTING NEW sans Exiting puis un End IMPORT quelques secondes ou minutes après'

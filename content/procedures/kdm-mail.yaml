@@ -1,46 +1,28 @@
 id: kdm-mail
 theme: TMS & KDM
 titre: KDM dans la boîte mail mais absentes du TMS
-quand: Le client voit ses KDM dans sa messagerie, le scan du TMS ne les remonte pas.
-comprendre: 'Le TMS relève la boîte mail en IMAP, puis dépose chaque KDM en FTP sur le LMS avant de l’importer. Si le mail est bien reçu, le blocage est presque toujours au dépôt : disque du LMS plein ou fichier écrit à moitié.'
-
+quand: 'Le client voit ses KDM dans sa messagerie, le scan du TMS ne les remonte pas.'
+symptomes: [kdm manquante, mail, imap, scan kdm]
+comprendre: |
+  Le TMS relève la boîte mail en IMAP, puis dépose chaque KDM en FTP sur le LMS avant de l’importer en base. Si le mail est bien reçu, le blocage est presque toujours au dépôt : disque du LMS plein ou fichier écrit à moitié. On remonte la chaîne dans l’ordre : boîte mail, journal, disque du LMS, fichiers déposés, base.
 etapes:
-  - titre: Dernière réception de la boîte
-    machine: tms
-    commande: |-
-      mongo --quiet ytms --eval 'db.mailAccounts.find().forEach(function(a){ var o={}; for (var k in a){ if(!/pass|secret|token|cred|pseudo/i.test(k)) o[k]=a[k]; } printjson(o) })'
-    attendu: lastMessage récent = la relève IMAP fonctionne, le problème est après
-
-  - titre: Erreurs de relève et de dépôt
-    machine: tms
-    commande: |-
-      grep -iE "KdmService|AuthenticationFailed|MessagingException" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -30
-    attendu: « Unable to connect to host … » = dépôt sur le LMS impossible. AUTHENTICATIONFAILED = identifiants ou mot de passe d’application.
-
+  - ref: boites-mail-sans-secrets
+    titre: Dernière réception de la boîte
+    attendu: 'lastMessage récent = la relève IMAP fonctionne, le problème est après'
+  - ref: erreurs-de-releve-et-de-depot-kdm
+    titre: Erreurs de relève et de dépôt
   - titre: Espace libre du LMS
     machine: tms
     commande: |-
       ssh sysadm@{LMS} df -h /opt/lms-ymagis
-    attendu: '100 % = cause trouvée : passer à la procédure « LMS plein »'
-
-  - titre: KDM vides ou tronquées sur le LMS
-    machine: tms
-    commande: |-
-      ssh sysadm@{LMS} "find {KDM_DIR} -name '*.xml' -size -16k -ls | head -40"
-    attendu: 0, 4096 ou 12288 octets = écriture coupée. Ces KDM ne seront jamais relues.
-
-  - titre: Le film est-il en base ?
-    machine: tms
-    commande: |-
-      mongo --quiet ytms --eval 'db.kdms.find({$or:[{name:/{FILM}/},{kdmPath:/{FILM}/}]},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})' | sort | uniq -c
-    attendu: Dates de validité par version. Rien = jamais importée.
-
-  - titre: Films avec une KDM valide
-    machine: tms
-    commande: |-
-      mongo --quiet ytms --eval 'var s={}; db.kdms.find({endDate:{$gte:new Date()}},{name:1,endDate:1}).forEach(function(k){var f=k.name.split("_")[0]; if(!s[f]||k.endDate>s[f]) s[f]=k.endDate}); Object.keys(s).sort().forEach(function(f){print(s[f].toISOString().slice(0,10)+" | "+f)})'
-    attendu: Le film du client doit apparaître avec une date de fin future
-
+    attendu: 'Sous 90 %. 100 % = cause trouvée : procédure « LMS plein »'
+  - ref: kdm-vides-ou-tronquees-sur-le-lms
+    titre: KDM vides ou tronquées sur le LMS
+  - ref: kdm-en-base-pour-un-film
+    titre: Le film est-il en base ?
+  - ref: films-avec-une-kdm-encore-valide
+    titre: Films avec une KDM valide
+    attendu: 'Le film du client apparaît avec une date de fin future'
   - titre: Après correction
     machine: man
     consigne: 'Relancer un scan dans le TMS. Pour les fichiers arrivés vides : faire retransférer le mail d’origine vers la boîte KDM.'

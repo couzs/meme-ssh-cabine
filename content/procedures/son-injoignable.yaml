@@ -1,40 +1,24 @@
 id: son-injoignable
 theme: Réseau
 titre: Processeur son (CP650) injoignable
-quand: Macros son (volume, format) KO depuis le serveur et le TMS, alors que le volume se règle à la main sur le processeur.
-comprendre: Le serveur pilote le processeur son par le réseau (port 61412 pour un Dolby CP650). Si le processeur a perdu le réseau, les macros échouent alors que le son fonctionne en façade. On prouve d’abord qu’il est absent du réseau avant d’envoyer le client vérifier le câble.
-
+quand: 'Macros son (volume, format) KO depuis le serveur et le TMS, alors que le volume se règle à la main sur le processeur.'
+symptomes: [son, dolby, cp650, volume, macro son]
+comprendre: |
+  Le serveur pilote le processeur son par le réseau (port 61412 pour un Dolby CP650). Si le processeur a perdu le réseau, les macros échouent alors que le son fonctionne en façade. On prouve d’abord qu’il est absent du réseau avant d’envoyer le client vérifier le câble.
 etapes:
-  - titre: IP et port déclarés
-    machine: dor
-    commande: |-
-      grep -n -i -B2 -A8 "cp650\|dolby" /doremi/etc/devices.xml
-    attendu: IP et port 61412
-
-  - titre: Répond-il ?
-    machine: lin
-    commande: |-
-      ping -c 3 {IP} ; arp -n | grep "{IP} "
-    attendu: « incomplete » = rien ne répond à cette IP
-
-  - titre: Port de contrôle
-    machine: lin
-    commande: |-
-      (echo > /dev/tcp/{IP}/61412) 2>/dev/null && echo "61412 OK" || echo "61412 KO"
+  - ref: processeur-declare-sur-le-serveur
+    titre: IP et port déclarés
+    attendu: 'IP et port 61412'
+  - ref: processeur-joignable
+    titre: Répond-il ?
+  - ref: port-de-controle-cp650
+    titre: Port de contrôle
     attendu: 'OK = joignable : le problème est dans les macros'
-
-  - titre: Autres Dolby du site
-    machine: lin
-    commande: |-
-      arp -n | grep -i "00:d0:46"
-    attendu: D’autres Dolby visibles = réseau OK, problème local à la salle
-
+  - ref: dolby-visibles-sur-le-reseau
+    titre: Autres Dolby du site
   - titre: Sur place (client)
     machine: man
-    consigne: Câble réseau branché des deux côtés, voyants de lien allumés, IP affichée en façade identique à celle déclarée, puis redémarrage électrique.
-
-  - titre: Validation
-    machine: lin
-    commande: |-
-      ping -c 3 {IP} ; arp -n | grep "{IP} "
-    attendu: Réponses et MAC 00:d0:46:…
+    consigne: 'Câble réseau branché des deux côtés, voyants de lien allumés, IP affichée en façade identique à celle déclarée, puis redémarrage électrique.'
+  - ref: processeur-joignable
+    titre: Validation
+    attendu: 'Réponses et MAC 00:d0:46:…'

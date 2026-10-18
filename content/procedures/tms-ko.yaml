@@ -1,0 +1,33 @@
+id: tms-ko
+theme: TMS & KDM
+titre: 'TMS inaccessible ou figé'
+quand: 'L’interface web du TMS ne s’affiche plus, tourne dans le vide ou ne met plus les salles à jour.'
+symptomes: [interface tms, page blanche, tms lent, tms planté, salles grisées]
+comprendre: |
+  Le TMS repose sur trois services : **MongoDB** (la base), le **cœur TMS** (ingest, supervision) et **Tomcat** (l’interface web). Si la base s’arrête, tout s’arrête ; si seul Tomcat plante, l’interface disparaît mais le reste tourne. On commence par les causes les plus fréquentes (disque plein, heure), puis on regarde quel service est tombé et pourquoi, avant de relancer dans le bon ordre.
+etapes:
+  - ref: qui-est-connecte
+    titre: Un collègue est-il déjà dessus ?
+    attendu: 'Ta seule session. Sinon, se coordonner avant de redémarrer quoi que ce soit.'
+  - ref: espace-disque
+    titre: Disque plein ?
+  - ref: etat-des-services-tms
+    titre: Quel service est tombé ?
+  - ref: services-en-echec
+    titre: Autre chose en échec ?
+  - ref: erreurs-tomcat-sans-les-piles
+    titre: Pourquoi (dernières erreurs Tomcat)
+  - ref: top-20-cpu-ram
+    titre: Un process qui sature la machine ?
+  - titre: Prévenir le client
+    machine: man
+    consigne: 'Le redémarrage coupe l’interface environ une minute. Demander s’il y a une séance en cours pilotée par le TMS.'
+  - ref: relance-complete-tms
+    titre: Relance complète, dans l’ordre
+  - ref: etat-des-services-tms
+    titre: Contrôle
+  - titre: Validation
+    machine: man
+    consigne: 'Rafraîchir l’interface web (Ctrl+F5), vérifier que les salles se mettent à jour. Si le problème revient, joindre au ticket la sortie des erreurs Tomcat.'
+attention: 'Disque plein à 100 % : le libérer d’abord (procédure « Disque système plein »), sinon les services retombent aussitôt.'
+maj: 2026-10-18

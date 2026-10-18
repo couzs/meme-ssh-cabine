@@ -1,77 +1,46 @@
 id: lms-ftp-plein
 theme: Stockage
 titre: 'Distributeur refusé (« permission denied ») : LMS Debian plein'
-quand: Hyphen ou un autre distributeur n’arrive plus à déposer, les nouveaux DCP n’apparaissent pas sur le LMS.
-comprendre: Beaucoup d’outils de livraison affichent « permission denied » pour n’importe quelle erreur d’écriture. Côté serveur FTP, le vrai message est souvent « No space left on device ». On teste donc l’écriture au bon endroit, dans lms/ et jamais à la racine, avant d’accuser les droits. Sur ces LMS Debian, aucune purge n’est automatique.
-
+quand: 'Hyphen ou un autre distributeur n’arrive plus à déposer, les nouveaux DCP n’apparaissent pas sur le LMS.'
+symptomes: [permission denied, hyphen, ftp, distributeur, dépôt refusé]
+comprendre: |
+  Beaucoup d’outils de livraison affichent « permission denied » pour n’importe quelle erreur d’écriture. Côté serveur FTP, le vrai message est souvent « No space left on device ». On teste donc l’écriture au bon endroit, dans lms/ et jamais à la racine, avant d’accuser les droits. Sur ces LMS Debian, aucune purge n’est automatique.
 etapes:
-  - titre: Tester l’écriture
-    machine: tms
-    commande: |-
-      ftp {LMS}
-    attendu: lmsuser à la main, puis cd lms → mkdir test_tech → rmdir test_tech → bye. « No space left » = disque plein.
-
+  - ref: tester-l-ecriture-en-ftp
+    titre: Tester l’écriture
   - titre: Se connecter au LMS
     machine: tms
     commande: |-
       ssh sysadm@{LMS}
     attendu: 'Puis sudo -i. Mot de passe refusé : ne pas insister (blocage possible), le demander.'
-
-  - titre: Remplissage
-    machine: lms
-    commande: |-
-      df -h /opt/lms-ymagis ; df -i /opt/lms-ymagis
-    attendu: 100 % = cause confirmée
-
-  - titre: Dernier dépôt réussi
-    machine: lms
-    commande: |-
-      ls -lt /opt/lms-ymagis/lms | head -5
-    attendu: Date de début de la panne. Le dernier DCP arrivé est souvent tronqué.
-
-  - titre: Plus gros DCP
-    machine: lms
-    commande: |-
-      du -sh /opt/lms-ymagis/lms/* 2>/dev/null | sort -rh | head -40
-    attendu: Base de la liste de purge
-
-  - titre: Dossiers vides ou tronqués
-    machine: lms
-    commande: |-
-      cd /opt/lms-ymagis/lms && for d in */; do n=$(du -sm "$d" | cut -f1); [ "$n" -lt 100 ] && echo "$n Mo  $d"; done
-    attendu: À ajouter au nettoyage
-
-  - titre: Le distributeur insiste ?
-    machine: lms
-    commande: |-
-      tail -20 /var/log/proftpd/proftpd.log
-    attendu: Connexions du NAS du distributeur qui finissent sans transfert
-
-  - titre: Purge automatique ?
-    machine: lms
-    commande: |-
-      for u in $(cut -d: -f1 /etc/passwd); do crontab -l -u $u 2>/dev/null | grep -v '^#' | grep . | sed "s/^/[$u] /"; done ; systemctl list-timers --no-pager
-    attendu: Rien de spécifique = ménage manuel, à signaler au N3
-
+  - ref: remplissage-du-volume-des-dcp
+    titre: Remplissage
+    attendu: '100 % = cause confirmée'
+  - ref: dcp-par-date-d-arrivee
+    titre: Dernier dépôt réussi
+    attendu: 'Date de début de la panne. Le dernier DCP arrivé est souvent tronqué.'
+  - ref: les-40-plus-gros-dcp
+    titre: Plus gros DCP
+    attendu: 'Base de la liste de purge'
+  - ref: dossiers-vides-ou-incomplets
+    titre: Dossiers vides ou tronqués
+    attendu: 'À ajouter au nettoyage'
+  - ref: erreurs-ftp
+    titre: Le message exact côté serveur
+    attendu: '« No space left on device » confirme le disque plein'
+  - ref: une-purge-automatique-existe
+    titre: Purge automatique ?
+    attendu: 'Rien de spécifique = ménage manuel, à signaler au N3'
   - titre: Validation du client
     machine: man
     consigne: 'Envoyer la liste : anciens films et reprises d’abord, avec le nombre de versions et la taille. Attendre l’accord écrit.'
-
-  - titre: Préparer la liste (ne supprime rien)
-    machine: lms
-    commande: |-
-      cd /opt/lms-ymagis/lms && LISTE=$(ls -d *{FILM}*) ; echo "$LISTE" ; echo "$LISTE" | wc -l ; du -sch $LISTE | tail -1
-    attendu: Exactement les dossiers validés. Un motif par film.
-
-  - titre: Supprimer (même session)
-    machine: lms
-    niveau: danger
-    commande: |-
-      cd /opt/lms-ymagis/lms && rm -rf -- $LISTE ; df -h /opt/lms-ymagis
-    attendu: Espace libre en hausse de la taille annoncée
-
+  - ref: preparer-une-liste-de-purge-ne-supprime-rien
+    titre: Préparer la liste (ne supprime rien)
+    attendu: 'Exactement les dossiers validés. Un motif par film.'
+  - ref: supprimer-la-liste-meme-session
+    titre: Supprimer (même session)
+    attendu: 'Espace libre en hausse de la taille annoncée'
   - titre: Relance
     machine: man
-    consigne: Refaire le test d’écriture, puis demander au distributeur de relancer ses envois, en priorité les DCP tronqués (supprimés avant).
-
-attention: Ne jamais supprimer sans accord écrit. Un DCP tronqué doit être supprimé avant d’être renvoyé.
+    consigne: 'Refaire le test d’écriture, puis demander au distributeur de relancer ses envois, en priorité les DCP tronqués (supprimés avant).'
+attention: 'Ne jamais supprimer sans accord écrit. Un DCP tronqué doit être supprimé avant d’être renvoyé.'

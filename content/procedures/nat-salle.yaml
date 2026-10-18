@@ -1,60 +1,47 @@
 id: nat-salle
 theme: Réseau
 titre: Corriger l’IP réelle d’une salle dans le NAT
-quand: Après un remplacement, l’IP virtuelle (frmXXXXsms000N) pointe encore vers l’ancien serveur.
-comprendre: 'Le TMS ne voit pas les vraies IP des salles : il parle à des IP virtuelles que l’ORC traduit (NAT 1:1) grâce à network.cfg. Si la correspondance pointe encore vers l’ancien équipement, le TMS parle dans le vide.'
-
+quand: 'Après un remplacement, l’IP virtuelle (frmXXXXsms000N) pointe encore vers l’ancien serveur.'
+symptomes: [nat, ip virtuelle, remplacement, network.cfg, ferm]
+comprendre: |
+  Le TMS ne voit pas les vraies IP des salles : il parle à des IP virtuelles que l’ORC traduit (NAT 1:1) grâce à network.cfg. Si la correspondance pointe encore vers l’ancien équipement, le TMS parle dans le vide. On sauvegarde, on corrige le fichier, on régénère, on prévisualise, puis on applique avec retour automatique.
 etapes:
   - titre: Correspondance actuelle
     machine: orc
     commande: |-
-      grep -nE "^{VIP} " /etc/ymagis/network.cfg ; iptables -t nat -S | grep "{VIP}/" | head -3
-    attendu: Ligne « VIP = OLD » et DNAT vers OLD
-
-  - titre: Puppet actif ?
-    machine: orc
-    commande: |-
-      systemctl is-active puppet
-    attendu: inactive = pas d’écrasement immédiat
-
+      grep -nwF "{VIP}" /etc/ymagis/network.cfg ; iptables -t nat -S | grep -F "{VIP}/" | head -3
+    attendu: 'Ligne « VIP = OLD » et DNAT vers OLD'
+  - ref: puppet-actif
+    titre: Puppet actif ?
+    attendu: 'inactive = pas d’écrasement immédiat'
   - titre: Sauvegardes
     machine: orc
     niveau: action
     commande: |-
       cp -a /etc/ymagis/network.cfg /root/network.cfg.bak_$(date +%F_%H%M) ; cp -a /etc/ferm/netconfig.conf /root/netconfig.conf.bak_$(date +%F_%H%M) ; ls -l /root/*.bak_*
-    attendu: Deux fichiers datés dans /root
-
+    attendu: 'Deux fichiers datés dans /root'
   - titre: Corriger network.cfg
     machine: orc
     niveau: action
     commande: |-
-      sed -i "s/^{VIP} = {OLD}$/{VIP} = {REAL}/" /etc/ymagis/network.cfg ; grep -n "^{VIP} " /etc/ymagis/network.cfg
-    attendu: « VIP = REAL »
-
+      sed -i "s/^{VIP} = {OLD}$/{VIP} = {REAL}/" /etc/ymagis/network.cfg ; grep -nwF "{VIP}" /etc/ymagis/network.cfg
+    attendu: '« VIP = REAL »'
+    lecture: 'Si la ligne affiche encore OLD, le format du fichier diffère (espaces) : corriger à la main avec `nano /etc/ymagis/network.cfg`.'
   - titre: Régénérer la conf ferm
     machine: orc
     niveau: action
     commande: |-
-      netconfig.pl ferm_config ; grep -n "{VIP}" /etc/ferm/netconfig.conf
+      netconfig.pl ferm_config ; grep -nF "{VIP}" /etc/ferm/netconfig.conf
     attendu: '&VMAP_MGT(VIP, REAL)'
-
-  - titre: Prévisualiser
-    machine: orc
-    commande: |-
-      ferm --noexec --lines /etc/ferm/ferm.conf 2>&1 | grep "{VIP}"
-    attendu: Toutes les lignes en --to-destination REAL
-
-  - titre: Appliquer avec retour automatique
-    machine: orc
-    niveau: danger
-    commande: |-
-      ferm --interactive /etc/ferm/ferm.conf
-    attendu: Taper yes dans les 30 s, sinon retour aux anciennes règles
-
+  - ref: previsualiser-les-regles-ferm
+    titre: Prévisualiser
+    attendu: 'Toutes les lignes en --to-destination REAL'
+  - ref: appliquer-ferm-avec-retour-automatique
+    titre: Appliquer avec retour automatique
+    attendu: 'Taper yes dans les 30 s, sinon retour aux anciennes règles'
   - titre: Vérifier
     machine: orc
     commande: |-
-      iptables -t nat -S | grep "{VIP}/" | head -3 ; ping -c2 -W1 {VIP}
-    attendu: DNAT vers REAL et ping OK
-
+      iptables -t nat -S | grep -F "{VIP}/" | head -3 ; ping -c2 -W1 {VIP}
+    attendu: 'DNAT vers REAL et ping OK'
 attention: 'network.cfg et ferm sont gérés par Puppet : demander au N3 de reporter la modification. Retour arrière : recopier les deux .bak_ puis ferm --interactive.'

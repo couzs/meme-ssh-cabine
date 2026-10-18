@@ -2,49 +2,33 @@ id: ingest-ko
 theme: DCP & ingest
 titre: Ingest KO après remplacement d’un serveur
 quand: 'Nouveau serveur ou ICMP-X : « Test de l’IP d’ingest » échoue, pas d’accès aux bibliothèques.'
-comprendre: L’ingest passe par un réseau séparé (réseau d’ingest). Après un remplacement, l’IP d’ingest doit être portée par un port réellement câblé du nouveau serveur. On regarde depuis l’ORC qui répond, ou non, à cette IP.
-
+symptomes: [ingest, remplacement, icmp-x, ip ingest]
+comprendre: |
+  L’ingest passe par un réseau séparé (réseau d’ingest). Après un remplacement, l’IP d’ingest doit être portée par un port réellement câblé du nouveau serveur. On regarde depuis l’ORC qui répond, ou non, à cette IP.
 etapes:
-  - titre: Toutes les IP d’ingest déclarées
-    machine: orc
-    commande: |-
-      for ip in $(grep -Eo "= {NET_STO}\.[0-9]+" /etc/ymagis/network.cfg | cut -d' ' -f2 | sort -u); do ping -c1 -W1 $ip >/dev/null 2>&1 && echo "OK   $ip" || echo "KO   $ip"; done
-    attendu: Une seule IP KO = problème dans la salle, pas sur l’ORC
-
+  - ref: toutes-les-ip-d-ingest-declarees
+    titre: Toutes les IP d’ingest déclarées
   - titre: L’IP d’ingest de la salle
     machine: orc
     commande: |-
       ping -c3 {ING} ; ip neigh show {ING}
-    attendu: FAILED = personne ne porte cette IP
-
-  - titre: Ancien serveur encore branché ?
-    machine: orc
-    commande: |-
-      ip neigh show | grep -v FAILED | sort
-    attendu: Deux MAC qui se suivent (gestion .X2 + ingest) = un même serveur toujours allumé
-
-  - titre: MAC Barco apprises
-    machine: orc
-    commande: |-
-      bridge -s fdb show | grep -i "00:04:a5"
-    attendu: MAC apprise mais sans IP dans ip neigh = port actif sans adresse
-
-  - titre: Qui répond à l’IP d’ingest
-    machine: orc
-    commande: |-
-      timeout 30 tcpdump -i {IF_STO} -n -e 'arp and host {ING}'
-    attendu: Seulement des « who-has » = port d’ingest non câblé ou sans IP
-
+    attendu: 'FAILED = personne ne porte cette IP'
+  - ref: voisins-reseau-vivants
+    titre: Ancien serveur encore branché ?
+    attendu: 'Deux MAC qui se suivent (gestion .X2 + ingest) = un même serveur toujours allumé'
+  - ref: toutes-les-mac-barco-apprises
+    titre: MAC Barco apprises
+  - ref: qui-repond-a-une-ip-arp
+    titre: Qui répond à l’IP d’ingest
+    attendu: 'Seulement des « who-has » = port d’ingest non câblé ou sans IP'
   - titre: Web Commander de la salle
     machine: man
     consigne: 'Network interfaces : l’IP d’ingest doit être sur un port ICMP réellement câblé (LAN 1 ou LAN 2). Un port en Automatic sans DHCP n’a aucune IP. Le projecteur garde l’IP de gestion.'
-
   - titre: Sur place
     machine: man
-    consigne: Brancher le port ICMP portant l’IP d’ingest à la place de l’ancien câble d’ingest, puis débrancher l’ancien serveur (accord client).
-
+    consigne: 'Brancher le port ICMP portant l’IP d’ingest à la place de l’ancien câble d’ingest, puis débrancher l’ancien serveur (accord client).'
   - titre: Validation
     machine: orc
     commande: |-
       ping -c3 {ING} ; ip neigh show {ING}
-    attendu: Réponse avec une MAC 00:04:a5, puis « Test de l’IP d’ingest » OK dans le TMS
+    attendu: 'Réponse avec une MAC 00:04:a5, puis « Test de l’IP d’ingest » OK dans le TMS'

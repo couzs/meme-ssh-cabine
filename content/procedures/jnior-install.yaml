@@ -2,64 +2,53 @@ id: jnior-install
 theme: Automation
 titre: Installer AnalogPresets sur un JNIOR vierge
 quand: 'JNIOR remplacé ou réinitialisé : nom par défaut jrXXXXXXXXX, pas d’analogpresets dans ps ni dans /flash.'
-comprendre: Un JNIOR neuf ne contient que son système. On lui copie l’application (fichier .jnior) depuis un JNIOR du site qui fonctionne, avec son propre client FTP. On recrée ensuite ses réglages dans le registre, puis on l’ajoute au démarrage automatique (clé Run).
+symptomes: [jnior neuf, remplacé, analogpresets absent]
+comprendre: |
+  Un JNIOR neuf ne contient que son système. On lui copie l’application (fichier .jnior) depuis un JNIOR du site qui fonctionne, avec son propre client FTP. On recrée ensuite ses réglages dans le registre, puis on l’ajoute au démarrage automatique (clé Run).
 copier_tout: false
-
 etapes:
-  - titre: Réglages de référence
-    machine: jnr
-    commande: |-
-      cat /flash/jnior.ini
+  - ref: configuration-complete
+    titre: Réglages de référence
     attendu: 'À lancer sur le JNIOR de référence : relais et niveaux à reproduire'
-
-  - titre: Sur le JNIOR à installer
-    machine: jnr
-    commande: |-
-      ls /flash
-    attendu: analogpresets.jnior absent = à copier
-
+  - ref: fichiers-installes
+    titre: Sur le JNIOR à installer
+    attendu: 'analogpresets.jnior absent = à copier'
   - titre: Se placer dans /flash
     machine: jnr
     niveau: action
     commande: |-
       cd /flash
-    attendu: Invite …/flash>
-
+    attendu: 'Invite …/flash>'
   - titre: FTP vers la référence
     machine: jnr
     niveau: action
     commande: |-
       ftp {JNR_SRC}
-    attendu: Identifiant admin, puis les quatre commandes suivantes dans ftp>
-
+    attendu: 'Identifiant admin, puis les quatre commandes suivantes dans ftp>'
   - titre: Mode binaire
     machine: jnr
     niveau: action
     commande: |-
       bin
-    attendu: 200 Type set to Binary
-
+    attendu: '200 Type set to Binary'
   - titre: Dossier source
     machine: jnr
     niveau: action
     commande: |-
       cd /flash
-    attendu: 250 CWD command successful
-
+    attendu: '250 CWD command successful'
   - titre: Copier
     machine: jnr
     niveau: action
     commande: |-
       get analogpresets.jnior
-    attendu: 150 BINARY connection open, puis la même taille que sur la référence
-
+    attendu: '150 BINARY connection open, puis la même taille que sur la référence'
   - titre: Fermer le FTP
     machine: jnr
     niveau: action
     commande: |-
       quit
-    attendu: Retour à l’invite du JNIOR
-
+    attendu: 'Retour à l’invite du JNIOR'
   - titre: Réglages (relais 7/6/5 → 100/50/0 %)
     machine: jnr
     niveau: action
@@ -79,29 +68,18 @@ etapes:
       registry AppData/AnalogPresets/Level_3/RelayOutputAction = 5
       registry AppData/AnalogPresets/Level_3/Setting = 0
       registry Run/analogpresets = /flash/analogpresets.jnior
-    attendu: Aucune ligne ne doit afficher l’aide de registry. Adapter relais et niveaux à la référence
-
-  - titre: Contrôle
-    machine: jnr
-    commande: |-
-      registry Run/analogpresets
+    attendu: 'Aucune ligne ne doit afficher l’aide de registry. Adapter relais et niveaux à la référence'
+    lecture: 'Telnet mélange les blocs collés : si une ligne affiche l’aide de registry, la retaper seule.'
+  - ref: lire-une-cle-du-registre
+    titre: Contrôle
     attendu: '= /flash/analogpresets.jnior'
-
-  - titre: Redémarrer
-    machine: jnr
-    niveau: danger
-    commande: |-
-      reboot
-    attendu: Hors séance, environ 80 s
-
-  - titre: Application démarrée ?
-    machine: jnr
-    commande: |-
-      cat /analogpresets.log
-    attendu: Bannière AnalogPresets puis « IO Monitor Scan Rate Set to 500 milliseconds »
-
+  - ref: redemarrer-le-jnior
+    titre: Redémarrer
+    attendu: 'Hors séance, environ 80 s'
+  - ref: journal-de-l-application-lumiere
+    titre: Application démarrée ?
+    attendu: 'Bannière AnalogPresets puis « IO Monitor Scan Rate Set to 500 milliseconds »'
   - titre: Macros et test
     machine: man
-    consigne: Configurer les macros du serveur (Pulse Up, 1000 ms, relais de la référence) puis tester comme dans « Automations lumière KO ».
-
+    consigne: 'Configurer les macros du serveur (Pulse Up, 1000 ms, relais de la référence) puis tester comme dans « Automations lumière KO ».'
 attention: 'Ne pas créer les clés « Trigger = not set » : l’espace fait échouer la commande, et l’application les crée seule au démarrage.'

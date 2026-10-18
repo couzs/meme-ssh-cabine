@@ -1,62 +1,42 @@
 id: ingest-doremi
 theme: DCP & ingest
 titre: Ingest manuel sur un Doremi (et suivi)
-quand: Ingest à lancer à la main depuis une clé USB ou un dossier de travail, avec suivi du temps restant.
-comprendre: ingestc.out est le moteur d’ingest du Doremi. Lancé avec nohup en tâche de fond, il continue même si la session SSH se coupe. Il vérifie chaque fichier contre la PKL (taille, hash), puis copie et indexe les MXF dans /data. Son journal permet de suivre l’avancement.
+quand: 'Ingest à lancer à la main depuis une clé USB ou un dossier de travail, avec suivi du temps restant.'
+symptomes: [ingest manuel, clé usb, doremi]
+comprendre: |
+  ingestc.out est le moteur d’ingest du Doremi. Lancé avec nohup en tâche de fond, il continue même si la session SSH se coupe. Il vérifie chaque fichier contre la PKL (taille, hash), puis copie et indexe les MXF dans /data. Son journal permet de suivre l’avancement.
 copier_tout: false
-
 etapes:
   - titre: Espace libre
     machine: dor
     commande: |-
       df -h /data
-    attendu: Plus que la taille du DCP
-
-  - titre: Trouver la PKL
-    machine: dor
-    commande: |-
-      grep -l "PackingList" {DCP_DIR}/*.xml
+    attendu: 'Plus que la taille du DCP'
+  - ref: trouver-la-pkl
+    titre: Trouver la PKL
     attendu: 'Une ligne : le fichier PKL'
-
   - titre: Lancer l’ingest
     machine: dor
     niveau: action
     commande: |-
       PKL=$(grep -l "PackingList" {DCP_DIR}/*.xml | head -1) ; nohup /doremi/bin/ingestc.out --read-only --incoming "$PKL" --monitor /data > /tmp/ingest_manuel.log 2>&1 &
     attendu: '[1] suivi d’un numéro de process'
-
+    lecture: '`nohup … &` lance l’ingest en arrière-plan et le protège d’une coupure de session. Tout ce qu’il écrit va dans /tmp/ingest_manuel.log.'
   - titre: Démarrage
     machine: dor
     commande: |-
       sleep 20 ; tail -15 /tmp/ingest_manuel.log
-    attendu: « CPL ingested » puis des lignes [Progress]. « retry with cache memory enabled » est sans gravité
-
-  - titre: Avancement et temps restant
-    machine: dor
-    commande: |-
-      grep "\[Progress\]" /tmp/ingest_manuel.log | tail -1 ; sleep 60 ; grep "\[Progress\]" /tmp/ingest_manuel.log | tail -1
-    attendu: 1er nombre = % global. Temps restant ≈ (100 − %) ÷ progression en une minute
-
-  - titre: Terminé ?
-    machine: dor
-    commande: |-
-      ps | grep [i]ngestc
-    attendu: Rien = terminé
-
-  - titre: Résultat
-    machine: dor
-    commande: |-
-      tail -5 /tmp/ingest_manuel.log ; grep -c "Ingest errors detected" /tmp/ingest_manuel.log ; grep -E "CPL ingested|MXF ingested" /tmp/ingest_manuel.log
-    attendu: Success, 0 erreur, un « ingested » pour la CPL et pour chaque MXF
-
-  - titre: Présent dans /data
-    machine: dor
-    commande: |-
-      find /data -name "*{CPL}*" 2>/dev/null
-    attendu: Lignes dans assets, maps et repository
-
+    attendu: '« CPL ingested » puis des lignes [Progress]. « retry with cache memory enabled » est sans gravité'
+  - ref: avancement-d-un-ingest-manuel
+    titre: Avancement et temps restant
+  - ref: ingest-en-cours
+    titre: Terminé ?
+    attendu: 'Rien = terminé'
+  - ref: resultat-d-un-ingest-manuel
+    titre: Résultat
+  - ref: la-cpl-est-elle-sur-le-serveur
+    titre: Présent dans /data
   - titre: Validation
     machine: man
-    consigne: Le client vérifie que le film apparaît et se lit (image et son, à plusieurs endroits). Ensuite seulement, nettoyer les fichiers de travail dans /tmp.
-
-attention: Un seul ingest du même DCP à la fois. Pour une autre salle, transférer depuis un serveur où l’ingest a réussi, jamais depuis une copie abîmée.
+    consigne: 'Le client vérifie que le film apparaît et se lit (image et son, à plusieurs endroits). Ensuite seulement, nettoyer les fichiers de travail dans /tmp.'
+attention: 'Un seul ingest du même DCP à la fois. Pour une autre salle, transférer depuis un serveur où l’ingest a réussi, jamais depuis une copie abîmée.'

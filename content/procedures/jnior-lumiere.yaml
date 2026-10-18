@@ -1,53 +1,32 @@
 id: jnior-lumiere
 theme: Automation
 titre: Automations lumière KO (JNIOR)
-quand: Les cues de la playlist ne changent plus la lumière, le reste de la séance fonctionne.
-comprendre: 'La chaîne complète : la playlist du serveur déclenche un cue → le cue appelle une macro → la macro envoie une impulsion sur un relais du JNIOR → l’application AnalogPresets du JNIOR transforme ce relais en niveau 0-10 V pour le gradateur. On vérifie chaque maillon, en commençant par le JNIOR, le plus simple à lire.'
+quand: 'Les cues de la playlist ne changent plus la lumière, le reste de la séance fonctionne.'
+symptomes: [lumière, jnior, cue, macro, gradateur]
+comprendre: |
+  La chaîne complète : la playlist du serveur déclenche un cue → le cue appelle une macro → la macro envoie une impulsion sur un relais du JNIOR → l’application AnalogPresets du JNIOR transforme ce relais en niveau 0-10 V pour le gradateur. On vérifie chaque maillon, en commençant par le JNIOR, le plus simple à lire.
 copier_tout: false
-
 etapes:
-  - titre: Se connecter
-    machine: jnr
-    commande: |-
-      telnet {JNR}
-    attendu: Depuis le TMS, identifiant admin. Ensuite, une seule commande à la fois.
-
-  - titre: Application lumière active ?
-    machine: jnr
-    commande: |-
-      ps
-    attendu: analogpresets dans la liste. Absente = procédure « Installer AnalogPresets »
-
-  - titre: Le serveur est connecté ?
-    machine: jnr
-    commande: |-
-      netstat
-    attendu: IP du serveur de la salle en ESTABLISHED sur le port 9200
-
-  - titre: Quel relais pour quel niveau ?
-    machine: jnr
-    commande: |-
-      cat /flash/jnior.ini
+  - ref: se-connecter-au-jnior
+    titre: Se connecter
+    attendu: 'Invite du JNIOR. Ensuite, une seule commande à la fois.'
+  - ref: applications-qui-tournent
+    titre: Application lumière active ?
+    attendu: 'analogpresets dans la liste. Absente = procédure « Installer AnalogPresets »'
+  - ref: qui-est-connecte-jnior
+    titre: Le serveur est connecté ?
+  - ref: configuration-complete
+    titre: Quel relais pour quel niveau ?
     attendu: 'Level_N : RelayOutputAction = relais, Setting = niveau en %'
-
-  - titre: Le serveur envoie-t-il des ordres ?
-    machine: jnr
-    commande: |-
-      cat /jrprotocol.log
-    attendu: Paquets 26 seuls = aucun ordre. 31 suivi d’IOException = macro JNIOR inexistante
-
+  - ref: commandes-recues-du-serveur
+    titre: Le serveur envoie-t-il des ordres ?
   - titre: Macros du serveur
     machine: man
     consigne: 'Interface du serveur (Web Commander pour un Barco) : macros Light0 / Light50 / Light100. Vides = cause trouvée. Action JNIOR « Pulse Up », relais lu dans jnior.ini, 1000 ms, champ « JNIOR Macro » vide.'
-
-  - titre: Test en direct
-    machine: jnr
-    commande: |-
-      jrmon
+  - ref: relais-et-entrees-en-direct
+    titre: Test en direct
     attendu: 'Ne plus toucher au clavier, puis exécuter la macro (icône main) : le relais passe à 1 environ une seconde'
-
   - titre: Contrôle en salle
     machine: man
-    consigne: Le client confirme le changement de lumière (fondu d’environ 5 s) pour chaque macro, puis en séance. Enregistrer les macros.
-
+    consigne: 'Le client confirme le changement de lumière (fondu d’environ 5 s) pour chaque macro, puis en séance. Enregistrer les macros.'
 attention: 'Prévenir le client avant chaque test : la lumière change réellement en salle.'

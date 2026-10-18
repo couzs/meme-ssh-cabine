@@ -1,0 +1,24 @@
+id: heure-fausse
+theme: TMS & KDM
+titre: 'KDM « pas encore valide » ou « expirée » alors qu’elle est bonne'
+quand: 'Une KDM valide est refusée, ou les séances se décalent : l’heure d’une machine est fausse.'
+symptomes: [heure, ntp, kdm pas valide, kdm expirée, décalage]
+comprendre: |
+  Une KDM n’est valable que sur une période précise. Si l’horloge du TMS ou du serveur de salle a dérivé (pile morte, NTP injoignable), une KDM correcte paraît « pas encore valide » ou « expirée ». On compare l’heure des machines à l’heure réelle, puis on vérifie leur synchronisation.
+etapes:
+  - ref: heure-systeme
+    titre: Heure du TMS
+    attendu: 'Moins d’une minute d’écart avec ton téléphone'
+  - ref: heure-fuseau-et-ntp
+    titre: Fuseau et synchronisation du TMS
+  - ref: kdm-en-base-pour-un-film
+    titre: Période de validité de la KDM
+    lecture: 'Compare la période affichée avec la date et l’heure de la machine : une KDM qui commence demain est « pas encore valide » aujourd’hui, c’est normal.'
+  - titre: Heure du serveur de salle
+    machine: man
+    consigne: 'Dans l’interface du serveur (Doremi, Barco Web Commander), relever la date et l’heure. Un serveur qui a dérivé refuse la KDM même si le TMS est à l’heure.'
+  - titre: Corriger
+    machine: man
+    consigne: 'Mauvais fuseau sur le TMS : fiche « Changer le fuseau » (hors exploitation). NTP non synchronisé : vérifier que la machine joint l’ORC. Serveur de salle en dérive : remettre à l’heure depuis son interface, ticket N2 si ça revient (pile de l’horloge).'
+attention: 'Ne jamais avancer ou reculer l’heure « pour faire passer » une KDM : c’est tracé et ça casse les autres films.'
+maj: 2026-10-18

@@ -1,31 +1,34 @@
 id: disk-sys
 theme: Système
 titre: Disque système plein
-quand: TMS ou ORC KO, df -h à 100 % sur /.
-comprendre: Quand / est plein, Mongo, Tomcat et les journaux ne peuvent plus écrire. Les journaux sont le plus souvent en cause et se purgent sans risque.
-
+quand: 'TMS ou ORC KO, df -h à 100 % sur /.'
+symptomes: [disque plein, no space left, 100%]
+comprendre: |
+  Quand / est plein, Mongo, Tomcat et les journaux ne peuvent plus écrire. Les journaux sont le plus souvent en cause et se purgent sans risque. Viennent ensuite les fichiers oubliés (captures, vieilles sauvegardes) et les logs géants encore ouverts.
 etapes:
-  - titre: Quel volume ?
+  - ref: espace-disque
+    titre: Quel volume ?
+    attendu: 'Repérer la ligne à 100 %'
+  - ref: inodes
+    titre: Ou plus d’inodes ?
+  - ref: ce-qui-remplit-les-logs
+    titre: Logs en cause ?
+    attendu: 'journal ou tomcat8 en tête'
+  - ref: plus-gros-fichiers
+    titre: Les plus gros fichiers
+  - ref: purger-les-vieux-journaux
+    titre: Purger journald
+    attendu: 'Ne touche qu’aux journaux journald archivés'
+  - ref: vider-un-log-sans-le-supprimer
+    titre: Vider un log géant (si besoin)
+  - titre: Place pas libérée ?
     machine: lin
     commande: |-
-      df -h
-    attendu: Repérer la ligne à 100 %
-
-  - titre: Logs en cause ?
-    machine: lin
-    commande: |-
-      du -sh /var/log/* | sort -h | tail
-    attendu: journal ou tomcat8 en tête
-
-  - titre: Purger journald
-    machine: lin
-    niveau: action
-    commande: |-
-      journalctl --vacuum-size=200M
-    attendu: Ne touche qu’aux journaux journald archivés
-
-  - titre: Contrôle
-    machine: lin
-    commande: |-
-      df -h
-    attendu: Espace récupéré
+      sudo lsof +L1 2>/dev/null | head -20
+    attendu: 'Aucune ligne. Sinon, la colonne COMMAND dit quel programme garde un fichier supprimé ouvert : le redémarrer libère la place.'
+  - ref: espace-disque
+    titre: Contrôle
+    attendu: 'Espace récupéré'
+  - ref: etat-des-services-tms
+    titre: Services repartis ?
+    lecture: 'Sur un TMS, les services tombés pendant le disque plein ne repartent pas seuls : les relancer (« Relance complète TMS »).'
