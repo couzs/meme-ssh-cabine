@@ -246,6 +246,11 @@ fs.rmSync(DIST, { recursive: true, force: true });
 fs.mkdirSync(DIST, { recursive: true });
 fs.writeFileSync(path.join(DIST, 'index.html'), html);
 fs.writeFileSync(path.join(DIST, 'memo-ssh-cabine.html'), html);   /* version hors ligne à télécharger */
+/* Variante pour une page Artifact de claude.ai : sans squelette HTML (ajouté à la publication), sans service worker. */
+const head = html.match(/<head>([\s\S]*?)<\/head>/)[1], body = html.match(/<body>([\s\S]*?)<\/body>/)[1];
+const artifact = '<title>' + escHtml(site.titre || 'Mémo SSH Cabine') + '</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n<meta name="robots" content="noindex,nofollow">\n' +
+  head.match(/<style>[\s\S]*?<\/style>/)[0] + '\n' + body.replace("const MODE = 'web';", "const MODE = 'artifact';");
+fs.writeFileSync(path.join(ROOT, 'artifact', 'memo-ssh-cabine.html'), artifact);
 fs.writeFileSync(path.join(DIST, 'version.json'), JSON.stringify({ build, commit: commit.slice(0, 7), version: pkg.version }));
 for (const f of fs.readdirSync(path.join(ROOT, 'public'))) {
   let s = fs.readFileSync(path.join(ROOT, 'public', f));

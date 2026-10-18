@@ -24,7 +24,7 @@ const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const strip = h => String(h).replace(/<[^>]+>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 const editUrl = f => M.depot && f ? 'https://github.com/' + M.depot + '/edit/' + (M.branche || 'main') + '/' + f : '';
-const online = /^https?:$/.test(location.protocol);
+const online = /^https?:$/.test(location.protocol) && MODE === 'web';
 
 /* ================= ÉTAT ================= */
 function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
@@ -99,7 +99,7 @@ const procOk = p => (!S.fav || S.favs.has(p.id)) && (S.m === 'all' || p.machines
 /* ================= ROUTAGE ================= */
 function parseHash() {
   let h = ''; try { h = decodeURIComponent(location.hash.slice(1)); } catch (e) { }
-  const [t, id] = h.split('/');
+  const [t, id] = h.split(/[./]/);
   if (t === 'c' && CMD[id]) return { t: 'cat', id: CMD[id].cat, focus: 'c-' + id };
   if (t === 'p' && PROC[id]) return { t: 'procs', focus: 'p-' + id, open: id };
   if ((t === 'cat' || t === 'page') && (CAT[id] || PAGE[id])) return { t: CAT[id] ? 'cat' : 'page', id };
@@ -110,7 +110,7 @@ function parseHash() {
   if (PAGE[t]) return { t: 'page', id: t };
   return { t: 'home' };
 }
-const hrefOf = r => r.t === 'home' ? '#accueil' : r.t === 'procs' ? '#procedures' : r.t === 'all' ? '#tout' : (r.t === 'page' ? '#page/' : '#cat/') + r.id;
+const hrefOf = r => r.t === 'home' ? '#accueil' : r.t === 'procs' ? '#procedures' : r.t === 'all' ? '#tout' : (r.t === 'page' ? '#page.' : '#cat.') + r.id;
 function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 function route() {
   S.route = parseHash();
@@ -127,7 +127,7 @@ window.addEventListener('hashchange', () => { if (S.q) { S.q = ''; $('q').value 
 const tagM = m => '<span class="tag" title="' + esc(MACH[m].desc || '') + '">' + esc(MACH[m].label) + '</span>';
 const tagL = (lv, label) => '<span class="tag ' + lv + '" title="' + esc(LEV[lv].desc || '') + '">' + esc(label || LEV[lv].label) + '</span>';
 const star = id => { const f = S.favs.has(id); return '<button class="ibtn star" type="button" data-star="' + esc(id) + '" aria-pressed="' + f + '" title="' + (f ? 'Retirer des favoris' : 'Ajouter aux favoris') + '">' + (f ? '★' : '☆') + '</button>'; };
-const linkBtn = h => '<button class="ibtn lnk" type="button" data-link="' + esc(h) + '" title="Copier le lien direct (à coller dans un ticket)">🔗</button>';
+const linkBtn = h => !online ? '' : '<button class="ibtn lnk" type="button" data-link="' + esc(h) + '" title="Copier le lien direct (à coller dans un ticket)">🔗</button>';
 const copyBtn = (k, lv, label) => '<button class="ibtn copy" type="button" data-copy="' + esc(k) + '">' + (label || 'Copier') + '</button>';
 const preCls = m => m === 'win' ? 'cmd ps' : m === 'jnr' ? 'cmd jn' : 'cmd';
 const pre = (k, cmd, m) => '<pre class="' + preCls(m) + '" data-copy="' + esc(k) + '" title="Cliquer pour copier">' + substHTML(cmd) + '</pre>';
@@ -139,7 +139,7 @@ function learnHTML(c, open) {
   if (c.exemple) h += '<div class="lsec"><h4>Exemple de résultat</h4><pre class="out">' + esc(c.exemple) + '</pre></div>';
   if (c.lecture) h += '<div class="lsec"><h4>Comment lire le résultat</h4>' + c.lecture + '</div>';
   if (c.si_ko) h += '<div class="lsec ko"><h4>Si ça ne va pas</h4>' + c.si_ko + '</div>';
-  const voir = c.voir.map(v => CMD[v] ? '<a class="linkbtn" href="#c/' + v + '">' + esc(CMD[v].titre) + '</a>' : PROC[v] ? '<a class="linkbtn" href="#p/' + v + '">▶ ' + esc(PROC[v].titre) + '</a>' : PAGE[v] ? '<a class="linkbtn" href="#page/' + v + '">📖 ' + esc(PAGE[v].titre) + '</a>' : '').join('');
+  const voir = c.voir.map(v => CMD[v] ? '<a class="linkbtn" href="#c.' + v + '">' + esc(CMD[v].titre) + '</a>' : PROC[v] ? '<a class="linkbtn" href="#p.' + v + '">▶ ' + esc(PROC[v].titre) + '</a>' : PAGE[v] ? '<a class="linkbtn" href="#page.' + v + '">📖 ' + esc(PAGE[v].titre) + '</a>' : '').join('');
   if (voir) h += '<div class="lsec"><h4>Voir aussi</h4><div class="voir">' + voir + '</div></div>';
   if (!h) return '';
   return '<details class="learn"' + (open ? ' open' : '') + '><summary>Comprendre' + (c.exemple ? ' · exemple' : '') + (c.lecture ? ' · lire le résultat' : '') + '</summary>' + h + '</details>';
@@ -148,7 +148,7 @@ function cardHTML(c) {
   const ed = editUrl(c.fichier);
   return '<article class="card lv-' + c.niveau + '" id="c-' + c.id + '">' +
     '<div class="chead"><h3 class="ctitle">' + esc(c.titre) + '</h3>' + (isNew(c.maj) ? '<span class="tag new">nouveau</span>' : '') +
-    tagM(c.machine) + tagL(c.niveau) + star(c.id) + linkBtn('#c/' + c.id) + copyBtn('c:' + c.id, c.niveau) + '</div>' +
+    tagM(c.machine) + tagL(c.niveau) + star(c.id) + linkBtn('#c.' + c.id) + copyBtn('c:' + c.id, c.niveau) + '</div>' +
     pre('c:' + c.id, c.commande, c.machine) +
     (c.but ? '<div class="desc">' + c.but + '</div>' : '') +
     box('exp', 'Attendu', c.attendu) + box('note', '⚠', c.attention) +
@@ -168,7 +168,7 @@ function stepHTML(p, s, i) {
     (s.commande ? pre(k, s.commande, s.machine) : '') +
     (s.commande ? box('exp', 'Attendu', s.attendu) : '') +
     (s.consigne ? '<div class="manual">' + s.consigne + '</div>' : '') +
-    more + learn + (ref ? '<div class="cfoot"><a href="#c/' + ref.id + '">Fiche « ' + esc(ref.titre) + ' »</a></div>' : '') +
+    more + learn + (ref ? '<div class="cfoot"><a href="#c.' + ref.id + '">Fiche « ' + esc(ref.titre) + ' »</a></div>' : '') +
     '</div></li>';
 }
 function procHTML(p) {
@@ -178,7 +178,7 @@ function procHTML(p) {
   return '<details class="proc" id="p-' + p.id + '" data-pid="' + p.id + '"' + (open ? ' open' : '') + '>' +
     '<summary><span class="ptitle">' + esc(p.titre) + '</span><span class="psym">' + esc(p.quand) + '</span>' +
     '<span class="pside">' + (isNew(p.maj) ? '<span class="tag new">nouveau</span>' : '') + '<span class="tag">' + p.etapes.length + ' étapes</span><span class="tag">' + p.machines.map(m => esc(MACH[m].label)).join(' · ') + '</span>' + tagL(p.lvMax, p.lvMax === 'info' ? 'lecture seule' : '') +
-    star(p.id) + linkBtn('#p/' + p.id) + '</span></summary>' +
+    star(p.id) + linkBtn('#p.' + p.id) + '</span></summary>' +
     '<div class="pbody">' +
     (p.comprendre ? '<div class="pwhy"><b>Comprendre</b>' + p.comprendre + '</div>' : '') +
     (all ? '<div class="pact"><span>Toutes les étapes sont en lecture seule et sur la même machine : tu peux tout copier d’un coup.</span>' + copyBtn('p:' + p.id + ':all', 'info', 'Copier tout') + '</div>' : '') +
@@ -208,16 +208,16 @@ function homeHTML() {
   let tiles = '', lt = '';
   procs.forEach(p => {
     if (p.theme !== lt) { if (lt) tiles += '</div>'; tiles += '<h3 class="th-h">' + esc(p.theme) + '</h3><div class="tiles">'; lt = p.theme; }
-    tiles += '<a class="tile" href="#p/' + p.id + '"><b>' + esc(p.titre) + '</b><span>' + esc(p.quand) + '</span><span class="tmeta">' + (isNew(p.maj) ? '<span class="tag new">nouveau</span>' : '') + '<span class="tag">' + p.etapes.length + ' étapes</span>' + tagL(p.lvMax, p.lvMax === 'info' ? 'lecture seule' : '') + '</span></a>';
+    tiles += '<a class="tile" href="#p.' + p.id + '"><b>' + esc(p.titre) + '</b><span>' + esc(p.quand) + '</span><span class="tmeta">' + (isNew(p.maj) ? '<span class="tag new">nouveau</span>' : '') + '<span class="tag">' + p.etapes.length + ' étapes</span>' + tagL(p.lvMax, p.lvMax === 'info' ? 'lecture seule' : '') + '</span></a>';
   });
   if (lt) tiles += '</div>';
   const guides = PAGES.filter(p => p.type === 'guide');
-  const favs = [...S.favs].map(id => CMD[id] ? '<li><a href="#c/' + id + '">' + esc(CMD[id].titre) + '</a></li>' : PROC[id] ? '<li><a href="#p/' + id + '">▶ ' + esc(PROC[id].titre) + '</a></li>' : '').join('');
+  const favs = [...S.favs].map(id => CMD[id] ? '<li><a href="#c.' + id + '">' + esc(CMD[id].titre) + '</a></li>' : PROC[id] ? '<li><a href="#p.' + id + '">▶ ' + esc(PROC[id].titre) + '</a></li>' : '').join('');
   const news = DATA.nouveautes.slice(0, 3).map(n => '<li><b>' + esc(n.titre) + '</b> <span class="vs-count">' + esc(fmtDate(n.date)) + '</span></li>').join('');
   return '<div class="hero"><h1>Que se passe-t-il en cabine ?</h1><p>Choisis le symptôme ci-dessous pour suivre une procédure pas à pas, ou tape un mot dans la recherche (<kbd>/</kbd>) : « kdm », « disque plein », « lumière », « ingest »…</p>' +
     '<ol class="steps3"><li><b>Renseigne ton site</b>Ouvre « Mon site » et saisis les IP : elles s’insèrent dans les commandes.</li><li><b>Suis la procédure</b>Chaque étape dit quoi taper, sur quelle machine, et ce que tu dois voir.</li><li><b>Copie, colle, compare</b>Clique sur une commande pour la copier. Le résultat attendu est juste dessous.</li></ol></div>' +
     '<div class="home-grid"><div>' + (tiles || '<div class="empty">Aucune procédure pour ce filtre.</div>') + '</div><aside class="home-side">' +
-    (guides.length ? '<div class="box"><h3>Débuter</h3><ul>' + guides.map(g => '<li><a href="#page/' + g.id + '">' + esc(g.titre) + '</a></li>').join('') + '</ul></div>' : '') +
+    (guides.length ? '<div class="box"><h3>Débuter</h3><ul>' + guides.map(g => '<li><a href="#page.' + g.id + '">' + esc(g.titre) + '</a></li>').join('') + '</ul></div>' : '') +
     (favs ? '<div class="box"><h3>Mes favoris</h3><ul>' + favs + '</ul></div>' : '') +
     '<div class="box"><h3>Niveaux de risque</h3><div class="legend">' + Object.keys(LEV).map(k => '<div>' + tagL(k) + '<span>' + esc(LEV[k].desc) + '</span></div>').join('') + '</div></div>' +
     (news ? '<div class="box"><h3>Nouveautés</h3><ul>' + news + '</ul><p style="margin-top:8px"><a href="#" data-dlg="news">Tout voir</a></p></div>' : '') +
@@ -228,7 +228,7 @@ function searchHTML() {
   const cs = CMDS.filter(cmdOk).map(c => [score(c), c]).filter(x => x[0]).sort((a, b) => b[0] - a[0]).map(x => x[1]);
   const pg = S.fav ? [] : PAGES.map(p => [score(p), p]).filter(x => x[0]).sort((a, b) => b[0] - a[0]).map(x => x[1]);
   let h = '';
-  if (pg.length) h += '<section class="grp"><h2>Pages</h2><div class="hits">' + pg.map(p => '<a class="hit" href="#page/' + p.id + '"><b>' + esc(p.titre) + '</b><span>' + esc(p.groupe) + (p.intro ? ' · ' + esc(p.intro) : '') + '</span></a>').join('') + '</div></section>';
+  if (pg.length) h += '<section class="grp"><h2>Pages</h2><div class="hits">' + pg.map(p => '<a class="hit" href="#page.' + p.id + '"><b>' + esc(p.titre) + '</b><span>' + esc(p.groupe) + (p.intro ? ' · ' + esc(p.intro) : '') + '</span></a>').join('') + '</div></section>';
   if (ps.length) h += procsSection(ps, 'Procédures');
   if (cs.length) h += '<section class="grp"><h2>Commandes</h2><div class="list">' + cs.map(c => cardHTML(c)).join('') + '</div></section>';
   return [h, ps.length, cs.length, pg.length];
@@ -275,9 +275,9 @@ function renderNav() {
     const cats = CATS.filter(c => c.groupe === g), pages = PAGES.filter(p => p.groupe === g);
     if (!cats.length && !pages.length) return;
     h += '<div class="navlabel">' + esc(g) + '</div>';
-    pages.filter(p => p.type === 'guide').forEach(p => { h += '<a href="#page/' + p.id + '"' + cur(r.t === 'page' && r.id === p.id) + '><span>' + esc(p.titre) + '</span></a>'; });
-    cats.forEach(c => { h += '<a href="#cat/' + c.id + '"' + cur(r.t === 'cat' && r.id === c.id) + '><span>' + esc(c.titre) + '</span><span class="n">' + nC(c.id) + '</span></a>'; });
-    pages.filter(p => p.type !== 'guide').forEach(p => { h += '<a href="#page/' + p.id + '"' + cur(r.t === 'page' && r.id === p.id) + '><span>' + esc(p.titre) + '</span></a>'; });
+    pages.filter(p => p.type === 'guide').forEach(p => { h += '<a href="#page.' + p.id + '"' + cur(r.t === 'page' && r.id === p.id) + '><span>' + esc(p.titre) + '</span></a>'; });
+    cats.forEach(c => { h += '<a href="#cat.' + c.id + '"' + cur(r.t === 'cat' && r.id === c.id) + '><span>' + esc(c.titre) + '</span><span class="n">' + nC(c.id) + '</span></a>'; });
+    pages.filter(p => p.type !== 'guide').forEach(p => { h += '<a href="#page.' + p.id + '"' + cur(r.t === 'page' && r.id === p.id) + '><span>' + esc(p.titre) + '</span></a>'; });
   });
   $('cats').innerHTML = h;
 }
@@ -472,7 +472,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ================= THÈME ================= */
-const THEMES = ['auto', 'light', 'dark'], TICO = { auto: '◐', light: '☀', dark: '☾' }, TLAB = { auto: 'automatique', light: 'clair', dark: 'sombre' };
+const THEMES = ['auto', 'light', 'dark'], TICO = { auto: 'Auto', light: 'Clair', dark: 'Sombre' }, TLAB = { auto: 'automatique', light: 'clair', dark: 'sombre' };
 let theme = load('memo_theme'); if (!THEMES.includes(theme)) theme = 'auto';
 function applyTheme() { if (theme === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = theme; $('theme-ico').textContent = TICO[theme]; $('btn-theme').title = 'Thème : ' + TLAB[theme]; }
 $('btn-theme').addEventListener('click', () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; save('memo_theme', theme); applyTheme(); toast('Thème ' + TLAB[theme]); });
