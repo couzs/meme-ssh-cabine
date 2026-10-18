@@ -1,0 +1,84 @@
+id: kdm
+titre: KDM & boîtes mail
+groupe: TMS & Linux
+intro: Relève IMAP, dépôt des KDM sur le LMS, KDM en base et validité.
+
+commandes:
+  - id: boites-mail-sans-secrets
+    titre: Boîtes mail (sans secrets)
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'db.mailAccounts.find().forEach(function(a){ var o={}; for (var k in a){ if(!/pass|secret|token|cred|pseudo/i.test(k)) o[k]=a[k]; } printjson(o) })'
+    but: 'Serveur et identifiant sont chiffrés : seuls type, port et lastMessage sont lisibles.'
+    attendu: lastMessage récent = la relève IMAP fonctionne
+
+  - id: erreurs-de-releve-et-de-depot-kdm
+    titre: Erreurs de relève et de dépôt KDM
+    machine: tms
+    niveau: info
+    commande: |-
+      grep -iE "KdmService|AuthenticationFailed|MessagingException|imap|mailbox" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -30
+    but: Distingue un problème de boîte mail d’un problème de dépôt sur le LMS.
+    attendu: « Unable to connect to host … » (FtpException) = dépôt sur le LMS impossible, souvent disque plein. AUTHENTICATIONFAILED = identifiants.
+
+  - id: depuis-quand-l-erreur-dure
+    titre: Depuis quand l’erreur dure
+    machine: tms
+    niveau: info
+    commande: |-
+      grep -c "Unable to connect to host" /var/log/tomcat8/catalina.out ; grep -m1 "Unable to connect to host" /var/log/tomcat8/catalina.out
+    but: Nombre d’occurrences et première date dans le journal actuel.
+
+  - id: kdm-en-base-pour-un-film
+    titre: KDM en base pour un film
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'db.kdms.find({$or:[{name:/{FILM}/},{kdmPath:/{FILM}/}]},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})' | sort | uniq -c
+    but: 'Regroupe les doublons : une ligne par version et période.'
+    attendu: Rien = KDM jamais importée. Fin de validité dépassée = demander une nouvelle KDM.
+
+  - id: films-avec-une-kdm-encore-valide
+    titre: Films avec une KDM encore valide
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'var s={}; db.kdms.find({endDate:{$gte:new Date()}},{name:1,endDate:1}).forEach(function(k){var f=k.name.split("_")[0]; if(!s[f]||k.endDate>s[f]) s[f]=k.endDate}); Object.keys(s).sort().forEach(function(f){print(s[f].toISOString().slice(0,10)+" | "+f)})'
+    but: Date de fin la plus tardive par film. Sert aussi à valider une purge du LMS.
+
+  - id: kdm-de-la-semaine-en-base
+    titre: KDM de la semaine en base
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'db.kdms.find({endDate:{$gte:new Date()}},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).limit(40).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})'
+    but: Les 40 KDM valides les plus récentes.
+
+  - id: kdm-recues-sur-le-lms
+    titre: KDM reçues sur le LMS
+    machine: tms
+    niveau: info
+    commande: |-
+      ssh sysadm@{LMS} "ls -lt {KDM_DIR} | head -40"
+    but: Ce que la relève a déposé, le plus récent en premier.
+    attendu: Une KDM fait 20 à 60 Ko
+
+  - id: kdm-vides-ou-tronquees-sur-le-lms
+    titre: KDM vides ou tronquées sur le LMS
+    machine: tms
+    niveau: info
+    commande: |-
+      ssh sysadm@{LMS} "find {KDM_DIR} -name '*.xml' -size -16k -ls | head -40"
+    but: 0 octet, 4096 ou 12288 octets = écriture coupée, le plus souvent par un disque plein.
+    attention: 'Ces fichiers ne seront jamais relus : le client doit retransférer le mail d’origine vers la boîte KDM.'
+
+  - id: tester-une-boite-gmail-en-imap
+    titre: Tester une boîte Gmail en IMAP
+    machine: tms
+    niveau: info
+    commande: |-
+      openssl s_client -connect imap.gmail.com:993 -crlf -quiet
+    but: 'Puis taper : a1 LOGIN adresse motdepasse puis a2 LOGOUT. Avec la validation en deux étapes, Gmail exige un mot de passe d’application.'
+    attendu: a1 OK = identifiants valides
+    attention: Ne jamais écrire le mot de passe dans le ticket.

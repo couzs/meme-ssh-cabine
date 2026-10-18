@@ -1,0 +1,118 @@
+id: win
+titre: PC / TeamViewer
+groupe: PC
+intro: Commandes sur le PC du site (PowerShell admin) ou ton poste.
+
+commandes:
+  - id: ip-et-passerelle-du-pc
+    titre: IP et passerelle du PC
+    machine: win
+    niveau: info
+    commande: |-
+      ipconfig
+    but: Le PC est-il sur le réseau cabine ?
+
+  - id: detail-complet
+    titre: Détail complet
+    machine: win
+    niveau: info
+    commande: |-
+      ipconfig /all
+    but: MAC, DHCP activé ou non, DNS.
+
+  - id: nom-des-cartes
+    titre: Nom des cartes
+    machine: win
+    niveau: info
+    commande: |-
+      Get-NetAdapter
+    but: Nom exact à reporter dans la variable WIN_IF.
+
+  - id: config-ip-par-carte
+    titre: Config IP par carte
+    machine: win
+    niveau: info
+    commande: |-
+      Get-NetIPConfiguration
+    but: IP, passerelle et DNS de chaque carte.
+
+  - id: tester-un-port
+    titre: Tester un port
+    machine: win
+    niveau: info
+    commande: |-
+      Test-NetConnection {IP} -Port 43728
+    attendu: 'TcpTestSucceeded : True'
+
+  - id: ping-continu
+    titre: Ping continu
+    machine: win
+    niveau: info
+    commande: |-
+      ping -t {IP}
+    but: Ctrl+C pour arrêter. Pratique pendant un redémarrage.
+
+  - id: chemin-reseau-2
+    titre: Chemin réseau
+    machine: win
+    niveau: info
+    commande: |-
+      tracert -d {IP}
+    but: Par où passent les paquets.
+
+  - id: table-arp
+    titre: Table ARP
+    machine: win
+    niveau: info
+    commande: |-
+      arp -a
+    but: MAC vues par le PC (format 00-04-a5-…).
+
+  - id: table-de-routage
+    titre: Table de routage
+    machine: win
+    niveau: info
+    commande: |-
+      route print -4
+    but: Routes actives du PC.
+
+  - id: ip-secondaire-temporaire
+    titre: IP secondaire temporaire
+    machine: win
+    niveau: action
+    commande: |-
+      New-NetIPAddress -InterfaceAlias "{WIN_IF}" -IPAddress {TMP_IP} -PrefixLength 24
+    but: 'Sans passerelle : ne coupe pas TeamViewer.'
+    attention: Uniquement si la carte est en IP fixe.
+
+  - id: retirer-l-ip-temporaire-2
+    titre: Retirer l’IP temporaire
+    machine: win
+    niveau: action
+    commande: |-
+      Remove-NetIPAddress -IPAddress {TMP_IP} -Confirm:$false
+    but: Nettoyage.
+
+  - id: route-temporaire-via-l-orc
+    titre: Route temporaire via l’ORC
+    machine: win
+    niveau: action
+    commande: |-
+      route add {BAD_NET} mask 255.255.255.0 {ORC}
+    but: 'Sans -p : disparaît au redémarrage du PC.'
+
+  - id: supprimer-la-route
+    titre: Supprimer la route
+    machine: win
+    niveau: action
+    commande: |-
+      route delete {BAD_NET}
+    but: Nettoyage.
+
+  - id: tunnel-vers-l-interface-web
+    titre: Tunnel vers l’interface web
+    machine: win
+    niveau: info
+    commande: |-
+      ssh -L 8080:{IP}:80 root@{ORC}
+    but: 'Depuis ton poste : ouvrir http://localhost:8080 = interface web de l’équipement.'

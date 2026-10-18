@@ -1,0 +1,87 @@
+id: nat
+titre: 'ORC : NAT & ferm'
+groupe: Réseau
+intro: IP virtuelles côté TMS, network.cfg, netconfig.conf et règles ferm.
+
+commandes:
+  - id: correspondances-d-une-salle
+    titre: Correspondances d’une salle
+    machine: orc
+    niveau: info
+    commande: |-
+      grep -nE "{VIP}|{OLD}|{REAL}" /etc/ymagis/network.cfg
+    but: Lignes « IP virtuelle = IP réelle ».
+
+  - id: regle-nat-active-pour-une-ip-virtuelle
+    titre: Règle NAT active pour une IP virtuelle
+    machine: orc
+    niveau: info
+    commande: |-
+      iptables -t nat -S | grep "{VIP}/"
+    but: Où pointe réellement l’IP virtuelle en ce moment.
+    attendu: '--to-destination = IP réelle visée'
+
+  - id: toutes-les-regles-nat
+    titre: Toutes les règles NAT
+    machine: orc
+    niveau: info
+    commande: |-
+      iptables -t nat -S
+    but: Redirections et SNAT.
+
+  - id: valeur-dans-la-conf-ferm
+    titre: Valeur dans la conf ferm
+    machine: orc
+    niveau: info
+    commande: |-
+      grep -rnE "{VIP}" /etc/ferm/
+    but: netconfig.conf contient les &VMAP_MGT / &VMAP_STO lus par ferm.
+
+  - id: previsualiser-les-regles-ferm
+    titre: Prévisualiser les règles ferm
+    machine: orc
+    niveau: info
+    commande: |-
+      ferm --noexec --lines /etc/ferm/ferm.conf 2>&1 | grep "{VIP}"
+    but: Ce que ferm appliquerait, sans rien appliquer.
+
+  - id: appliquer-ferm-avec-retour-automatique
+    titre: Appliquer ferm avec retour automatique
+    machine: orc
+    niveau: danger
+    commande: |-
+      ferm --interactive /etc/ferm/ferm.conf
+    but: Taper yes dans les 30 secondes. Sans réponse (session coupée), ferm revient aux anciennes règles.
+    attention: Toujours prévisualiser avant.
+
+  - id: regenerer-netconfig-conf
+    titre: Régénérer netconfig.conf
+    machine: orc
+    niveau: action
+    commande: |-
+      cp -a /etc/ferm/netconfig.conf /root/netconfig.conf.avant_regen ; netconfig.pl ferm_config ; diff /root/netconfig.conf.avant_regen /etc/ferm/netconfig.conf
+    but: 'netconfig.pl relit network.cfg. L’ordre des lignes change à chaque génération : seul le contenu compte.'
+
+  - id: qui-utilise-network-cfg
+    titre: Qui utilise network.cfg
+    machine: orc
+    niveau: info
+    commande: |-
+      grep -rl "network.cfg" /usr/local/bin /usr/local/sbin /etc/init.d 2>/dev/null
+    but: getconfig.pl, orchestra_*.py, set_ftp_inbox.sh… aucun n’applique iptables directement.
+
+  - id: puppet-actif
+    titre: Puppet actif ?
+    machine: orc
+    niveau: info
+    commande: |-
+      systemctl is-active puppet ; ls -l /var/lib/puppet/state/last_run_summary.yaml 2>/dev/null
+    but: inactive = pas d’écrasement immédiat d’une modification locale.
+
+  - id: puppet-a-blanc
+    titre: Puppet à blanc
+    machine: orc
+    niveau: info
+    commande: |-
+      puppet agent -t --noop
+    but: Montre ce que Puppet changerait, sans rien appliquer.

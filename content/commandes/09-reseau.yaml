@@ -1,0 +1,153 @@
+id: reseau
+titre: Réseau / équipements
+groupe: Réseau
+intro: Joindre un projecteur, un serveur ou un IMS depuis le TMS ou l’ORC.
+
+commandes:
+  - id: ping
+    titre: Ping
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 {IP}
+    but: Équipement joignable ou non.
+
+  - id: mac-de-l-equipement
+    titre: MAC de l’équipement
+    machine: lin
+    niveau: info
+    commande: |-
+      ip neigh show {IP}
+    but: La MAC dit qui est là (Barco = 00:04:a5, Supermicro = 00:25:90 / 00:30:48 / ac:1f:6b).
+    attendu: FAILED = rien ne répond à cette IP
+
+  - id: voisins-reseau-vivants
+    titre: Voisins réseau vivants
+    machine: lin
+    niveau: info
+    commande: |-
+      ip neigh show | grep -v FAILED | sort
+    but: Toutes les IP vues récemment avec leur MAC.
+
+  - id: tous-les-barco-vus
+    titre: Tous les Barco vus
+    machine: lin
+    niveau: info
+    commande: |-
+      ip neigh | grep -i 00:04:a5
+    but: Projecteurs et ICMP/IMS Barco présents sur le réseau.
+
+  - id: ports-sans-nmap
+    titre: Ports sans nmap
+    machine: lin
+    niveau: info
+    commande: |-
+      for p in 22 80 43728 43758; do timeout 2 bash -c "</dev/tcp/{IP}/$p" && echo "$p OK" || echo "$p KO"; done
+    but: Teste les ports clés d’un Barco.
+
+  - id: un-port-avec-nc
+    titre: Un port avec nc
+    machine: lin
+    niveau: info
+    commande: |-
+      nc -zv -w3 {IP} 21
+    but: Remplacer 21 par le port voulu.
+    attendu: succeeded = port ouvert
+
+  - id: balayage-rapide-d-un-reseau
+    titre: Balayage rapide d’un réseau
+    machine: lin
+    niveau: info
+    commande: |-
+      ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh | grep -v FAILED | grep "{NET}\."
+    but: Pings en parallèle, environ 2 secondes, sans les messages de tâches de fond.
+
+  - id: scan-du-reseau-nmap
+    titre: Scan du réseau (nmap)
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo nmap -sn -n {NET}.0/24
+    but: Liste des IP qui répondent.
+
+  - id: ports-d-un-equipement-nmap
+    titre: Ports d’un équipement (nmap)
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo nmap -p 22,80,443,43728,43758 {IP}
+    but: Ports ouverts sur un équipement précis.
+
+  - id: interface-web-repond
+    titre: Interface web répond ?
+    machine: lin
+    niveau: info
+    commande: |-
+      curl -sI http://{IP}
+    but: Une ligne HTTP/1.1 = serveur web vivant.
+
+  - id: connexions-avec-l-equipement
+    titre: Connexions avec l’équipement
+    machine: lin
+    niveau: info
+    commande: |-
+      ss -tnp | grep {IP}
+    but: Le TMS parle-t-il vraiment au projecteur / à l’IMS ?
+
+  - id: erreurs-sur-les-cartes
+    titre: Erreurs sur les cartes
+    machine: lin
+    niveau: info
+    commande: |-
+      ip -s link
+    but: Compteurs errors / dropped par interface.
+
+  - id: joindre-l-orc
+    titre: Joindre l’ORC
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 {ORC}
+    but: Le TMS voit-il sa passerelle ?
+
+  - id: sortie-internet
+    titre: Sortie Internet
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 8.8.8.8 ; curl -sI https://www.google.com | head -1
+    but: Ping OK mais curl KO = souci DNS ou proxy.
+
+  - id: dns-utilises
+    titre: DNS utilisés
+    machine: lin
+    niveau: info
+    commande: |-
+      systemd-resolve --status | grep -A2 "DNS Servers"
+    but: Serveurs DNS de la machine.
+
+  - id: chemin-reseau
+    titre: Chemin réseau
+    machine: lin
+    niveau: info
+    commande: |-
+      traceroute -n {IP}
+    but: Par où passent les paquets (si installé).
+
+  - id: config-reseau-sur-disque
+    titre: Config réseau sur disque
+    machine: lin
+    niveau: info
+    commande: |-
+      cat /etc/netplan/*.yaml /etc/network/interfaces 2>/dev/null
+    but: Configuration IP fixe enregistrée.
+
+  - id: espace-libre-du-lms-en-ftp
+    titre: Espace libre du LMS en FTP
+    machine: tms
+    niveau: info
+    commande: |-
+      ftp {LMS}
+    but: 'Taper lmsuser et le mot de passe À LA MAIN, attendre « 230 User lmsuser logged in », puis : quote SITE DF'
+    attendu: '200 df /: size: … free: … (en octets)'
+    attention: 'Ne jamais coller un bloc pendant la connexion : les invites avalent les lignes.'

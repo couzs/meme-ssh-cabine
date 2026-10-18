@@ -1,0 +1,91 @@
+id: extra
+titre: 'LMS : extra_exchange'
+groupe: Stockage
+intro: 'Script de réception du TCS (cron toutes les 15 min) : process, verrou, journal, configuration.'
+
+commandes:
+  - id: process-en-cours-et-duree
+    titre: Process en cours et durée
+    machine: lms
+    niveau: info
+    commande: |-
+      \ps -eo pid,etime,args | grep [e]xtra_exchange
+    but: Le  contourne l’alias ps du TCS.
+    attendu: Rien = aucun passage en cours
+
+  - id: verrou
+    titre: Verrou
+    machine: lms
+    niveau: info
+    commande: |-
+      ls -l /tmp/.extra_receive.lock 2>&1
+    but: Le script le pose au démarrage et le retire à la fin.
+    attendu: Verrou présent sans process = passage planté. Retrait automatique au bout de 320 min.
+
+  - id: derniers-passages
+    titre: Derniers passages
+    machine: lms
+    niveau: info
+    commande: |-
+      grep -E "STARTING NEW|End IMPORT" /var/log/extra_exchange.log | tail -8
+    but: Toutes les 15 minutes.
+    attendu: « lock file exist. Exiting » en série = un passage bloque les suivants
+
+  - id: fin-du-journal
+    titre: Fin du journal
+    machine: lms
+    niveau: info
+    commande: |-
+      tail -20 /var/log/extra_exchange.log
+    but: Ce que fait le script en ce moment.
+
+  - id: etapes-activees
+    titre: Étapes activées
+    machine: lms
+    niveau: info
+    commande: |-
+      grep -E "^(IMPORT|EXPORT)_VIA_[A-Z]+=" /etc/ymagis/extra_exchange.conf
+    but: Seules les étapes à YES tournent.
+    attendu: IMPORT_VIA_ECLAIR=NO = inbox Eclair jamais traitée ni purgée
+    attention: 'Fichier géré par Puppet : ne pas modifier, passer par le N3.'
+
+  - id: configuration-sans-secrets
+    titre: Configuration sans secrets
+    machine: lms
+    niveau: info
+    commande: |-
+      grep -vE "^\s*#|^\s*$" /etc/ymagis/extra_exchange.conf | grep -viE "pass|pwd|secret|key|token"
+    but: MAIL=NO = aucune alerte n’est envoyée.
+
+  - id: activite-par-etape-archives-comprises
+    titre: Activité par étape, archives comprises
+    machine: lms
+    niveau: info
+    commande: |-
+      for f in /var/log/extra_exchange.log*; do zcat -f "$f"; done | grep -oE "\[(IMPORT|EXPORT)_[A-Z_]+\]" | sort | uniq -c
+    but: Une étape absente de plusieurs mois de journaux n’est pas activée.
+
+  - id: derniere-trace-eclair-par-archive
+    titre: Dernière trace Eclair par archive
+    machine: lms
+    niveau: info
+    commande: |-
+      for f in $(ls -tr /var/log/extra_exchange.log*); do zcat -f "$f" | grep -i eclair | grep -viE "checksum|size check" | tail -1; done | tail -5
+    but: Seulement des lignes [CLEANING] = le script ne fait que supprimer les dossiers vides.
+
+  - id: dcp-en-echec-en-boucle
+    titre: DCP en échec en boucle
+    machine: lms
+    niveau: info
+    commande: |-
+      grep -E "FAILED|alert|unchanged" /var/log/extra_exchange.log | tail -20
+    but: Checksums FAILED, « Directory size unchanged » = DCP mort revérifié à chaque passage.
+
+  - id: retirer-un-verrou-plante
+    titre: Retirer un verrou planté
+    machine: lms
+    niveau: action
+    commande: |-
+      \ps -eo pid,args | grep -q [e]xtra_exchange && echo "Passage en cours : ne rien toucher" || rm -vf /tmp/.extra_receive.lock
+    but: Ne supprime le verrou que si aucun passage ne tourne.
+    attendu: Le passage suivant (:00 :15 :30 :45) démarre sans « Exiting » et se termine

@@ -1,0 +1,14 @@
+/*
+  X-Robots-Tag: noindex, nofollow
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+
+/index.html
+  Cache-Control: no-cache
+/version.json
+  Cache-Control: no-store
+/sw.js
+  Cache-Control: no-cache

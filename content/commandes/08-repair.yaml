@@ -1,0 +1,64 @@
+id: repair
+titre: Réparation & backup
+groupe: TMS & Linux
+intro: 'Cas lourds : base corrompue, sauvegarde, restauration, disque.'
+
+commandes:
+  - id: sauvegarde-datee-de-la-base
+    titre: Sauvegarde datée de la base
+    machine: tms
+    niveau: action
+    commande: |-
+      mongodump --db ytms -o /root/backup_ytms_$(date +%F_%H%M)
+    but: À faire avant tout drop, repair ou modification de la base.
+
+  - id: sauvegarde-complete
+    titre: Sauvegarde complète
+    machine: tms
+    niveau: action
+    commande: |-
+      mongodump -o /backup
+    but: Sauvegarde toutes les bases dans /backup.
+
+  - id: restaurer-la-base
+    titre: Restaurer la base
+    machine: tms
+    niveau: danger
+    commande: |-
+      mongorestore --dir /backup
+    but: Restaure depuis /backup.
+    attention: Écrase les données actuelles.
+
+  - id: reparer-une-base-corrompue
+    titre: Réparer une base corrompue
+    machine: tms
+    niveau: danger
+    commande: |-
+      mongod --dbpath /var/lib/mongodb --repair
+    but: Mongo ne démarre plus après une coupure.
+    attention: Arrêter mongodb avant, puis corriger les droits.
+
+  - id: droits-apres-reparation
+    titre: Droits après réparation
+    machine: tms
+    niveau: action
+    commande: |-
+      chown -R mongodb: /var/lib/mongodb
+    but: Remet les fichiers à l’utilisateur mongodb.
+
+  - id: purger-les-vieux-journaux
+    titre: Purger les vieux journaux
+    machine: lin
+    niveau: action
+    commande: |-
+      journalctl --vacuum-size=200M
+    but: Libère de la place en gardant 200 Mo de journaux.
+
+  - id: sante-du-disque
+    titre: Santé du disque
+    machine: lin
+    niveau: info
+    commande: |-
+      smartctl -H /dev/sda
+    but: Nécessite smartmontools.
+    attendu: PASSED

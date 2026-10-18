@@ -1,0 +1,56 @@
+id: dcp
+titre: 'DCP : intégrité'
+groupe: Salle
+intro: 'Comparer un DCP à sa PKL : tailles, hash SHA-1 et fins de ligne. Fonctionne sur Doremi comme sur un Linux.'
+
+commandes:
+  - id: fichiers-du-dcp
+    titre: Fichiers du DCP
+    machine: lin
+    niveau: info
+    commande: |-
+      ls -la {DCP_DIR}
+    but: Tailles réelles de chaque fichier.
+
+  - id: trouver-la-pkl
+    titre: Trouver la PKL
+    machine: lin
+    niveau: info
+    commande: |-
+      grep -l "PackingList" {DCP_DIR}/*.xml
+    but: 'La PKL n’a pas toujours un nom en pkl_… : on la reconnaît à son contenu.'
+
+  - id: ce-qu-annonce-la-pkl
+    titre: Ce qu’annonce la PKL
+    machine: lin
+    niveau: info
+    commande: |-
+      grep -iE "<Id>|<Size>|<Hash>|OriginalFileName" $(grep -l "PackingList" {DCP_DIR}/*.xml | head -1)
+    but: 'Pour chaque fichier : UUID, taille exacte en octets et hash SHA-1 en base64.'
+
+  - id: fins-de-ligne-windows-cr-dans-les-xml
+    titre: Fins de ligne Windows (CR) dans les XML
+    machine: lin
+    niveau: info
+    commande: |-
+      for f in {DCP_DIR}/*.xml; do echo "$(tr -cd '\r' < "$f" | wc -c) CR  $f"; done
+    but: Un XML de DCP n’a normalement aucun caractère CR.
+    attendu: 0 partout. Un nombre > 0 = fichier converti par un FTP en mode ASCII
+
+  - id: taille-et-hash-d-un-fichier
+    titre: Taille et hash d’un fichier
+    machine: lin
+    niveau: info
+    commande: |-
+      F={DCP_DIR}/NOM_DU_FICHIER.xml ; wc -c < "$F" ; openssl sha1 -binary "$F" | openssl base64
+    but: 'Remplacer NOM_DU_FICHIER. Même format que la PKL : à comparer aux balises Size et Hash.'
+    attention: 'Sur Doremi, base64 n’existe pas : openssl base64 le remplace.'
+
+  - id: copie-corrigee-sans-cr
+    titre: Copie corrigée sans CR
+    machine: lin
+    niveau: action
+    commande: |-
+      F={DCP_DIR}/NOM_DU_FICHIER.xml ; tr -d '\r' < "$F" > /tmp/$(basename "$F") ; wc -c < /tmp/$(basename "$F") ; openssl sha1 -binary /tmp/$(basename "$F") | openssl base64
+    but: Écrit une copie nettoyée dans /tmp, sans toucher à l’original, puis affiche sa taille et son hash.
+    attention: La copie n’est utilisable que si taille ET hash sont identiques à la PKL.

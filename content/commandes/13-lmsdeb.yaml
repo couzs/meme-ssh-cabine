@@ -1,0 +1,150 @@
+id: lmsdeb
+titre: 'LMS Debian : FTP'
+groupe: Stockage
+intro: 'LMS Debian (FRxxxxLMS0001) : les DCP sont directement dans /opt/lms-ymagis/lms, déposés en FTP par lmsuser (ProFTPD).'
+
+commandes:
+  - id: tester-l-ecriture-en-ftp
+    titre: Tester l’écriture en FTP
+    machine: tms
+    niveau: info
+    commande: |-
+      ftp {LMS}
+    but: 'Taper lmsuser et le mot de passe à la main. Puis : cd lms → mkdir test_tech → rmdir test_tech → bye.'
+    attendu: 257 créé = écriture OK. 550 No space left on device = disque plein. 550 Permission denied dans lms/ = vrai problème de droits
+    attention: 'Toujours tester DANS lms/ : à la racine, mkdir échoue toujours (dossier de root), même quand tout va bien.'
+
+  - id: remplissage-du-volume-des-dcp
+    titre: Remplissage du volume des DCP
+    machine: lms
+    niveau: info
+    commande: |-
+      df -h /opt/lms-ymagis ; df -i /opt/lms-ymagis
+    but: Sur un LMS Debian, /opt/lms-ymagis est le point de montage du disque de contenu.
+    attendu: Use% 100 % ou quelques Ko libres = plus aucun dépôt possible
+
+  - id: les-40-plus-gros-dcp
+    titre: Les 40 plus gros DCP
+    machine: lms
+    niveau: info
+    commande: |-
+      du -sh /opt/lms-ymagis/lms/* 2>/dev/null | sort -rh | head -40
+    but: Base de la liste de purge à proposer au client.
+
+  - id: dcp-par-date-d-arrivee
+    titre: DCP par date d’arrivée
+    machine: lms
+    niveau: info
+    commande: |-
+      ls -lt /opt/lms-ymagis/lms | head -30
+    but: 'Le plus récent en premier : la date du dernier dépôt réussi donne le début de la panne.'
+
+  - id: dossiers-vides-ou-incomplets
+    titre: Dossiers vides ou incomplets
+    machine: lms
+    niveau: info
+    commande: |-
+      cd /opt/lms-ymagis/lms && for d in */; do n=$(du -sm "$d" | cut -f1); [ "$n" -lt 100 ] && echo "$n Mo  $d"; done
+    but: 'Dossiers de moins de 100 Mo : DCP tronqué, livraison interrompue ou dossier vide resté après un retrait.'
+    attention: 'Une bande-annonce peut peser moins de 100 Mo : regarder le nom avant de conclure.'
+
+  - id: contenu-d-un-dcp
+    titre: Contenu d’un DCP
+    machine: lms
+    niveau: info
+    commande: |-
+      ls -la /opt/lms-ymagis/lms/*{FILM}*/
+    but: Un DCP complet contient ASSETMAP, PKL, CPL et les MXF. Un MXF de quelques Mo sans PKL = transfert coupé.
+
+  - id: transferts-temporaires-caches
+    titre: Transferts temporaires cachés
+    machine: lms
+    niveau: info
+    commande: |-
+      ls -la /opt/lms-ymagis/lms/.tmp ; du -sh /opt/lms-ymagis/lms/.tmp
+    but: Morceaux de transferts interrompus qui peuvent occuper de la place.
+
+  - id: erreurs-ftp
+    titre: Erreurs FTP
+    machine: lms
+    niveau: info
+    commande: |-
+      grep -iE "denied|No space|Read-only|refused" /var/log/proftpd/proftpd.log | tail -20
+    but: Le message exact que reçoit le distributeur.
+
+  - id: qui-se-connecte-en-ftp
+    titre: Qui se connecte en FTP
+    machine: lms
+    niveau: info
+    commande: |-
+      tail -30 /var/log/proftpd/proftpd.log
+    but: IP du distributeur (NAS Hyphen, TMS…) et résultat de chaque session.
+    attention: 'Un mot de passe tapé par erreur dans le champ identifiant apparaît en clair ici : le faire changer.'
+
+  - id: transferts-termines
+    titre: Transferts terminés
+    machine: lms
+    niveau: info
+    commande: |-
+      tail -20 /var/log/proftpd/xferlog
+    but: Une ligne par fichier reçu ou envoyé.
+
+  - id: un-film-dans-les-logs-ftp
+    titre: Un film dans les logs FTP
+    machine: lms
+    niveau: info
+    commande: |-
+      grep -i "{FILM}" /var/log/proftpd/*.log | tail -10
+    but: Le film a-t-il déjà été tenté ?
+
+  - id: une-purge-automatique-existe
+    titre: Une purge automatique existe ?
+    machine: lms
+    niveau: info
+    commande: |-
+      for u in $(cut -d: -f1 /etc/passwd); do crontab -l -u $u 2>/dev/null | grep -v '^#' | grep . | sed "s/^/[$u] /"; done ; ls /etc/cron.d ; systemctl list-timers --no-pager
+    but: Crontabs de tous les utilisateurs, tâches cron et timers systemd.
+    attendu: 'Seulement des tâches Debian (logrotate, apt, man-db…) = aucune purge : ménage manuel'
+
+  - id: preparer-une-liste-de-purge-ne-supprime-rien
+    titre: Préparer une liste de purge (ne supprime rien)
+    machine: lms
+    niveau: info
+    commande: |-
+      cd /opt/lms-ymagis/lms && LISTE=$(ls -d *{FILM}*) ; echo "$LISTE" ; echo "$LISTE" | wc -l ; du -sch $LISTE | tail -1
+    but: Liste, nombre de dossiers et taille totale pour un motif validé par le client.
+
+  - id: supprimer-la-liste-meme-session
+    titre: Supprimer la liste (même session)
+    machine: lms
+    niveau: danger
+    commande: |-
+      cd /opt/lms-ymagis/lms && rm -rf -- $LISTE ; df -h /opt/lms-ymagis
+    but: Supprime exactement la liste affichée juste avant.
+    attention: Uniquement après accord écrit du client et dans la même session que la préparation. Irréversible.
+
+  - id: taille-des-dcp-par-ftp-sans-ssh
+    titre: Taille des DCP par FTP (sans SSH)
+    machine: tms
+    niveau: info
+    commande: |-
+      python3 - <<'EOF'
+      import ftplib, getpass
+      f = ftplib.FTP('{LMS}', timeout=60)
+      f.login('lmsuser', getpass.getpass('Mot de passe lmsuser : '))
+      def taille(p):
+          t = 0
+          for n, fa in f.mlsd(p, facts=['type', 'size']):
+              if fa.get('type') == 'file': t += int(fa.get('size', 0))
+              elif fa.get('type') == 'dir': t += taille(p + '/' + n)
+          return t
+      res = []
+      for n, fa in f.mlsd('lms', facts=['type', 'modify']):
+          if fa.get('type') == 'dir' and n != 'kdm':
+              res.append((taille('lms/' + n), fa.get('modify', '')[:8], n))
+      f.quit()
+      res.sort(reverse=True)
+      for s, d, n in res: print("%8.1f Go  %s  %s" % (s/1e9, d, n))
+      print("TOTAL : %.2f To sur %d DCP" % (sum(r[0] for r in res)/1e12, len(res)))
+      EOF
+    but: Quand on n’a pas l’accès SSH au LMS. Le mot de passe est demandé, jamais affiché.

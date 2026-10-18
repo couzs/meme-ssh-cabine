@@ -1,0 +1,31 @@
+id: disk-sys
+theme: Système
+titre: Disque système plein
+quand: TMS ou ORC KO, df -h à 100 % sur /.
+comprendre: Quand / est plein, Mongo, Tomcat et les journaux ne peuvent plus écrire. Les journaux sont le plus souvent en cause et se purgent sans risque.
+
+etapes:
+  - titre: Quel volume ?
+    machine: lin
+    commande: |-
+      df -h
+    attendu: Repérer la ligne à 100 %
+
+  - titre: Logs en cause ?
+    machine: lin
+    commande: |-
+      du -sh /var/log/* | sort -h | tail
+    attendu: journal ou tomcat8 en tête
+
+  - titre: Purger journald
+    machine: lin
+    niveau: action
+    commande: |-
+      journalctl --vacuum-size=200M
+    attendu: Ne touche qu’aux journaux journald archivés
+
+  - titre: Contrôle
+    machine: lin
+    commande: |-
+      df -h
+    attendu: Espace récupéré

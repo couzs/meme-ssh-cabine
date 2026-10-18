@@ -1,0 +1,135 @@
+id: acces
+titre: Accès / base
+groupe: TMS & Linux
+intro: 'Premier coup d’œil sur la machine : heure, disque, IP, reboots.'
+
+commandes:
+  - id: passer-root
+    titre: Passer root
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo -i
+    but: Passer en root pour tout faire sans restriction.
+
+  - id: heure-systeme
+    titre: Heure système
+    machine: lin
+    niveau: info
+    commande: |-
+      date
+    but: 'Vérifier l’heure : très souvent cause de bugs TMS / KDM / licence.'
+
+  - id: heure-fuseau-et-ntp
+    titre: Heure, fuseau et NTP
+    machine: lin
+    niveau: info
+    commande: |-
+      timedatectl
+    but: Fuseau horaire et synchro NTP.
+    attendu: '« System clock synchronized: yes »'
+
+  - id: changer-le-fuseau
+    titre: Changer le fuseau
+    machine: lin
+    niveau: action
+    commande: |-
+      dpkg-reconfigure tzdata
+    but: Configuration du fuseau horaire TMS/ORC.
+
+  - id: espace-disque
+    titre: Espace disque
+    machine: lin
+    niveau: info
+    commande: |-
+      df -h
+    but: Disque plein = cause fréquente de TMS KO. Sur le TCS, regarder la ligne /opt/lms-ymagis.
+
+  - id: inodes
+    titre: Inodes
+    machine: lin
+    niveau: info
+    commande: |-
+      df -i
+    but: 'Disque « plein » alors que df -h montre de la place : plus d’inodes (trop de petits fichiers).'
+
+  - id: ce-qui-remplit-les-logs
+    titre: Ce qui remplit les logs
+    machine: lin
+    niveau: info
+    commande: |-
+      du -sh /var/log/* | sort -h | tail
+    but: Les 10 plus gros dossiers de logs.
+
+  - id: identifier-la-machine
+    titre: Identifier la machine
+    machine: lin
+    niveau: info
+    commande: |-
+      hostname ; cat /etc/os-release
+    but: Nom (frmXXXXtms0000, orc0001, tcs0001) et version d’Ubuntu.
+
+  - id: ip-des-interfaces
+    titre: IP des interfaces
+    machine: lin
+    niveau: info
+    commande: |-
+      ip -br a
+    but: Une ligne par interface. Sur l’ORC, voir « Repères ORC » pour le rôle de chaque bridge.
+
+  - id: passerelle
+    titre: Passerelle
+    machine: lin
+    niveau: info
+    commande: |-
+      ip route
+    but: Sur un TMS, la passerelle est normalement l’ORC (.254).
+
+  - id: uptime-et-charge
+    titre: Uptime et charge
+    machine: lin
+    niveau: info
+    commande: |-
+      uptime
+    but: Temps depuis le dernier démarrage, utilisateurs connectés, charge moyenne.
+
+  - id: qui-est-connecte
+    titre: Qui est connecté
+    machine: lin
+    niveau: info
+    commande: |-
+      w
+    but: Voir si un autre technicien est en SSH en même temps.
+
+  - id: historique-des-reboots
+    titre: Historique des reboots
+    machine: lin
+    niveau: info
+    commande: |-
+      last -x | head -20
+    but: Une coupure électrique apparaît sans « shutdown » propre.
+
+  - id: disques-et-partitions
+    titre: Disques et partitions
+    machine: lin
+    niveau: info
+    commande: |-
+      lsblk
+    but: Disques, tailles et points de montage.
+
+  - id: modele-du-serveur
+    titre: Modèle du serveur
+    machine: lin
+    niveau: info
+    commande: |-
+      dmidecode -t system
+    but: Fabricant, modèle, numéro de série.
+
+  - id: ssh-vers-le-lms-tcs
+    titre: SSH vers le LMS / TCS
+    machine: tms
+    niveau: info
+    commande: |-
+      ssh sysadm@{LMS}
+    but: Depuis le TMS. Puis sudo -i pour lire les dossiers de contenu.
+    attendu: Bannière « Theater Central Server (TCS) » puis invite sysadm@frmXXXXtcs0001

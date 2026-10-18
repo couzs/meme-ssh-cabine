@@ -1,0 +1,141 @@
+id: jnior
+titre: JNIOR (telnet)
+groupe: Salle
+intro: 'Boîtier d’automation : relais, lumière 0-10 V, macros. Taper une seule commande à la fois.'
+
+commandes:
+  - id: se-connecter-au-jnior
+    titre: Se connecter au JNIOR
+    machine: jnr
+    niveau: info
+    commande: |-
+      telnet {JNR}
+    but: 'Depuis le TMS. Identifiant admin. Le texte du démarrage peut se mélanger à la saisie : retaper si « Login incorrect ».'
+
+  - id: commandes-disponibles
+    titre: Commandes disponibles
+    machine: jnr
+    niveau: info
+    commande: |-
+      help
+    but: Les JNIOR en OS 4.x ont moins de commandes que les récents.
+
+  - id: applications-qui-tournent
+    titre: Applications qui tournent
+    machine: jnr
+    niveau: info
+    commande: |-
+      ps
+    attendu: analogpresets dans la liste = l’application lumière tourne
+
+  - id: qui-est-connecte-2
+    titre: Qui est connecté
+    machine: jnr
+    niveau: info
+    commande: |-
+      netstat
+    but: Serveur de la salle sur le port 9200 (protocole JNIOR), Modbus sur 502, telnet sur 23.
+    attendu: IP du serveur en ESTABLISHED sur 9200
+
+  - id: ip-et-reseau
+    titre: IP et réseau
+    machine: jnr
+    niveau: info
+    commande: |-
+      ipconfig
+    but: IP, masque, passerelle, MAC (00:60:35:…).
+
+  - id: dernier-demarrage
+    titre: Dernier démarrage
+    machine: jnr
+    niveau: info
+    commande: |-
+      cat /jniorboot.log
+    but: Heure du boot, firmware, modules détectés (analogique 10 V, panneau), applications lancées.
+
+  - id: journal-systeme
+    titre: Journal système
+    machine: jnr
+    niveau: info
+    commande: |-
+      cat /jniorsys.log
+    but: Connexions, modifications du registre, redémarrages. L’ancien journal est dans jniorsys.log.bak.
+
+  - id: commandes-recues-du-serveur
+    titre: Commandes reçues du serveur
+    machine: jnr
+    niveau: info
+    commande: |-
+      cat /jrprotocol.log
+    but: Une ligne par paquet reçu sur le port 9200.
+    attendu: 26 seuls = interrogation d’état, aucune commande. 10 = commande de relais. 31 suivi d’IOException = macro JNIOR introuvable
+
+  - id: journal-de-l-application-lumiere
+    titre: Journal de l’application lumière
+    machine: jnr
+    niveau: info
+    commande: |-
+      cat /analogpresets.log
+    but: Bannière de démarrage puis « IO Monitor Scan Rate ». Les changements de niveau ne sont pas journalisés.
+
+  - id: fichiers-installes
+    titre: Fichiers installés
+    machine: jnr
+    niveau: info
+    commande: |-
+      ls /flash
+    but: analogpresets.jnior, task.jnior… = applications disponibles.
+
+  - id: configuration-complete
+    titre: Configuration complète
+    machine: jnr
+    niveau: info
+    commande: |-
+      cat /flash/jnior.ini
+    but: 'Copie lisible du registre. AppData/AnalogPresets/Level_N : RelayOutputAction = relais déclencheur, Setting = niveau en %. Run = démarrage automatique.'
+    attention: 'Fichier réécrit par le JNIOR avec un délai : après une modification, lire le registre directement.'
+
+  - id: lire-une-cle-du-registre
+    titre: Lire une clé du registre
+    machine: jnr
+    niveau: info
+    commande: |-
+      registry Run/analogpresets
+    but: Remplacer par la clé voulue, ex. AppData/AnalogPresets/Level_1/RelayOutputAction.
+
+  - id: relais-et-entrees-en-direct
+    titre: Relais et entrées en direct
+    machine: jnr
+    niveau: info
+    commande: |-
+      jrmon
+    but: 'Se met à jour seul. Ne rien taper : n’importe quelle touche arrête l’affichage.'
+    attendu: 'Colonne 8-RLYn-1 : le chiffre de gauche est le relais 8, celui de droite le relais 1'
+
+  - id: ecrire-une-cle-du-registre
+    titre: Écrire une clé du registre
+    machine: jnr
+    niveau: action
+    commande: |-
+      registry AppData/AnalogPresets/Level_1/RelayOutputAction = 7
+    but: 'Syntaxe : registry clé = valeur.'
+    attention: Une valeur avec un espace fait échouer la commande (l’aide s’affiche).
+
+  - id: copier-un-fichier-depuis-un-autre-jnior
+    titre: Copier un fichier depuis un autre JNIOR
+    machine: jnr
+    niveau: action
+    commande: |-
+      ftp {JNR_SRC}
+    but: 'Lancer depuis /flash (cd /flash avant). Identifiant admin, puis dans ftp> : bin → cd /flash → get NOM.jnior → quit.'
+    attendu: 150 BINARY connection open et la même taille que la source
+    attention: Sans bin, le transfert se fait en ASCII et peut abîmer le fichier.
+
+  - id: redemarrer-le-jnior
+    titre: Redémarrer le JNIOR
+    machine: jnr
+    niveau: danger
+    commande: |-
+      reboot
+    but: Environ 80 s. Les applications de la clé Run redémarrent seules.
+    attention: 'Hors séance : la lumière automatisée est coupée pendant le redémarrage.'

@@ -1,0 +1,101 @@
+id: services
+titre: Services
+groupe: TMS & Linux
+intro: État des process TMS, Tomcat, Mongo et ports en écoute.
+
+commandes:
+  - id: process-en-cours
+    titre: Process en cours
+    machine: lin
+    niveau: info
+    commande: |-
+      top
+    but: Process et consommation en direct (q pour quitter).
+
+  - id: top-20-cpu-ram
+    titre: Top 20 CPU / RAM
+    machine: lin
+    niveau: info
+    commande: |-
+      top -b -n 1 | head -n 20
+    but: Instantané des process qui consomment le plus.
+
+  - id: process-tms
+    titre: Process TMS
+    machine: tms
+    niveau: info
+    commande: |-
+      ps aux | grep -i tms
+    but: Voir si les process TMS tournent.
+
+  - id: process-java
+    titre: Process Java
+    machine: tms
+    niveau: info
+    commande: |-
+      ps aux | grep java
+    but: Voir si les process Java tournent.
+
+  - id: tomcat-interface-web
+    titre: Tomcat (interface web)
+    machine: tms
+    niveau: info
+    commande: |-
+      systemctl status tomcat8
+    but: État du frontend TMS.
+
+  - id: mongodb
+    titre: MongoDB
+    machine: tms
+    niveau: info
+    commande: |-
+      systemctl status mongodb
+    but: La base de données tourne-t-elle ?
+
+  - id: c-ur-tms-monitoring
+    titre: Cœur TMS (monitoring)
+    machine: tms
+    niveau: info
+    commande: |-
+      /etc/init.d/cinemanext-monitoring-remote status
+    but: État du service ingest + supervision.
+
+  - id: services-en-echec
+    titre: Services en échec
+    machine: lin
+    niveau: info
+    commande: |-
+      systemctl --failed
+    but: Tous les services en erreur d’un coup.
+
+  - id: services-actifs
+    titre: Services actifs
+    machine: lin
+    niveau: info
+    commande: |-
+      systemctl list-units --type=service --state=running
+    but: Liste de ce qui tourne.
+
+  - id: ports-en-ecoute
+    titre: Ports en écoute
+    machine: lin
+    niveau: info
+    commande: |-
+      ss -tlnp
+    but: Port + process (8080 Tomcat, 27017 Mongo).
+
+  - id: ram
+    titre: RAM
+    machine: lin
+    niveau: info
+    commande: |-
+      free -m
+    but: Mémoire utilisée et libre, en Mo.
+
+  - id: test-snmp
+    titre: Test SNMP
+    machine: lin
+    niveau: info
+    commande: |-
+      snmpwalk -c public -v2c {IP} 1
+    but: Vérifier que l’équipement répond en SNMP.

@@ -1,0 +1,32 @@
+id: barco-ip
+theme: Réseau
+titre: Retrouver un Barco parti sur une IP inconnue
+quand: Projecteur injoignable après une coupure ou une intervention.
+comprendre: Un projecteur sur une mauvaise IP continue d’émettre des trames avec sa MAC Barco (00:04:a5). En les captant sur l’ORC, on lit l’IP qu’il croit avoir, puis on se met dans son réseau pour le corriger.
+
+etapes:
+  - titre: Capter les trames Barco
+    machine: orc
+    commande: |-
+      timeout 60 tcpdump -i {IF} -n -e 'ether[6:2] == 0x0004 and ether[8:1] == 0xa5'
+    attendu: 'Souvent un ARP « who-has X tell Y » : Y = IP réelle. Renseigne BAD_IP.'
+
+  - titre: IP temporaire dans son réseau
+    machine: orc
+    niveau: action
+    commande: |-
+      ip addr add {TMP_IP}/24 dev {IF}
+    attendu: Pas d’erreur
+
+  - titre: Le joindre
+    machine: orc
+    commande: |-
+      ping -c 2 {BAD_IP} ; for p in 80 43728 43758; do timeout 2 bash -c "</dev/tcp/{BAD_IP}/$p" && echo "$p OK" || echo "$p KO"; done
+    attendu: Ports OK = corriger son IP dans Communicator
+
+  - titre: Retirer l’IP temporaire
+    machine: orc
+    niveau: action
+    commande: |-
+      ip addr del {TMP_IP}/24 dev {IF}
+    attendu: Toujours à la fin

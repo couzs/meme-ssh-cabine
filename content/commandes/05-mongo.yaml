@@ -1,0 +1,69 @@
+id: mongo
+titre: Base Mongo
+groupe: TMS & Linux
+intro: Lecture de la base ytms du TMS.
+
+commandes:
+  - id: ouvrir-la-base
+    titre: Ouvrir la base
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo ytms
+    but: Accéder à la base TMS (exit pour sortir).
+
+  - id: la-base-repond
+    titre: La base répond ?
+    machine: tms
+    niveau: info
+    commande: |-
+      echo "show tables" | mongo ytms
+    but: Liste les collections si Mongo est OK.
+
+  - id: salles-equipements-et-ip
+    titre: Salles, équipements et IP
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'db.booths.find().sort({number:1}).forEach(function(b){b.devices.forEach(function(d){print("salle "+b.name+" | "+d.type+" | "+d.make+" | "+d.model+" | "+d.ipAddress)})})'
+    but: 'À lancer en premier : ce que le TMS attend dans chaque salle.'
+
+  - id: quelle-salle-a-cette-ip
+    titre: Quelle salle a cette IP ?
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'db.booths.find({"devices.ipAddress":"{IP}"},{name:1,number:1}).forEach(printjson)'
+    but: Retrouver la salle à partir de l’IP d’une alerte.
+
+  - id: bibliotheques-declarees
+    titre: Bibliothèques déclarées
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'db.library.find({},{name:1,protocol:1,managementIp:1,inboxPath:1}).forEach(printjson)'
+    but: LMS, Deluxe, Hyphen… avec leur IP et leur chemin.
+
+  - id: nombre-de-cpl-et-kdm
+    titre: Nombre de CPL et KDM
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'print("CPL: "+db.cpls.count()+" | KDM: "+db.kdms.count())'
+    but: Contrôle rapide avant et après un drop.
+
+  - id: taille-de-la-base
+    titre: Taille de la base
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet ytms --eval 'printjson(db.stats())'
+    but: Taille des données et des index.
+
+  - id: version-de-mongo
+    titre: Version de Mongo
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo --quiet --eval 'db.version()'
+    but: Utile pour un ticket N2.

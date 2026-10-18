@@ -1,0 +1,117 @@
+id: doremi
+titre: Serveur Doremi
+groupe: Salle
+intro: 'DCP2000 / ShowVault : logs, contenus dans /data, périphériques, macros, ingest manuel. Pas de nc, timeout, base64 ni curl.'
+
+commandes:
+  - id: espace-et-uptime
+    titre: Espace et uptime
+    machine: dor
+    niveau: info
+    commande: |-
+      df -h /data ; uptime
+    but: /data contient les contenus ingérés.
+
+  - id: erreurs-recentes
+    titre: Erreurs récentes
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -hiE "error|fail" /doremi/log/*.log | tail -30
+    but: Toutes les erreurs des journaux Doremi, les plus récentes à la fin.
+
+  - id: un-film-dans-les-logs
+    titre: Un film dans les logs
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -hi "{FILM}" /doremi/log/*.log | tail -20
+    but: Ingest, lecture ou KDM concernant ce film.
+
+  - id: une-cpl-dans-les-logs
+    titre: Une CPL dans les logs
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -h "{CPL}" /doremi/log/*.log | tail -20
+    but: 'Plus précis que le nom : l’UUID est unique.'
+
+  - id: ingests-en-echec
+    titre: Ingests en échec
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -hiE "ingest errors|hash|size mismatch" /doremi/log/*.log | tail -20
+    but: Mismatch de taille ou de hash = fichier différent de ce qu’annonce la PKL.
+
+  - id: la-cpl-est-elle-sur-le-serveur
+    titre: La CPL est-elle sur le serveur ?
+    machine: dor
+    niveau: info
+    commande: |-
+      find /data -name "*{CPL}*" 2>/dev/null
+    attendu: Lignes dans assets, maps et repository = contenu présent
+
+  - id: cles-usb-et-disques-branches
+    titre: Clés USB et disques branchés
+    machine: dor
+    niveau: info
+    commande: |-
+      mount | grep -iE "usb|media|sd[b-z]" ; ls /media
+    but: Où trouver un DCP livré sur clé ou disque.
+
+  - id: peripheriques-declares
+    titre: Périphériques déclarés
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -n -iE "name|address|host|port|type" /doremi/etc/devices.xml | head -60
+    but: Projecteur, processeur son, JNIOR… avec IP et port.
+
+  - id: un-peripherique-precis
+    titre: Un périphérique précis
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -n -i -B3 -A8 "{IP}" /doremi/etc/devices.xml
+    but: Bloc de configuration de l’équipement.
+
+  - id: macros-d-automation
+    titre: Macros d’automation
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -n -i -A6 "macro" /doremi/etc/macros.xml | head -80
+    but: Ce que chaque macro envoie et à quel périphérique.
+
+  - id: config-modifiee-recemment
+    titre: Config modifiée récemment ?
+    machine: dor
+    niveau: info
+    commande: |-
+      ls -lt /doremi/etc | head
+    but: Une date récente sur devices.xml ou macros.xml = changement à investiguer.
+
+  - id: ingest-en-cours
+    titre: Ingest en cours ?
+    machine: dor
+    niveau: info
+    commande: |-
+      ps | grep [i]ngestc
+    attendu: Rien = aucun ingest en cours
+
+  - id: avancement-d-un-ingest-manuel
+    titre: Avancement d’un ingest manuel
+    machine: dor
+    niveau: info
+    commande: |-
+      grep "\[Progress\]" /tmp/ingest_manuel.log | tail -1 ; sleep 60 ; grep "\[Progress\]" /tmp/ingest_manuel.log | tail -1
+    but: Le 1er nombre est le % global. Temps restant ≈ (100 − %) ÷ progression en une minute.
+
+  - id: resultat-d-un-ingest-manuel
+    titre: Résultat d’un ingest manuel
+    machine: dor
+    niveau: info
+    commande: |-
+      tail -5 /tmp/ingest_manuel.log ; grep -c "Ingest errors detected" /tmp/ingest_manuel.log ; grep -E "CPL ingested|MXF ingested" /tmp/ingest_manuel.log
+    attendu: Success, 0 erreur, un « ingested » par CPL et par MXF

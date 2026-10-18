@@ -1,0 +1,117 @@
+id: logs
+titre: Logs
+groupe: TMS & Linux
+intro: 'Diagnostic rapide : Tomcat, journal système, noyau.'
+
+commandes:
+  - id: dernieres-lignes-tomcat
+    titre: Dernières lignes Tomcat
+    machine: tms
+    niveau: info
+    commande: |-
+      tail -n 50 /var/log/tomcat8/catalina.out
+    but: Dernières erreurs TMS.
+
+  - id: tomcat-en-direct
+    titre: Tomcat en direct
+    machine: tms
+    niveau: info
+    commande: |-
+      tail -f /var/log/tomcat8/catalina.out
+    but: Suivre pendant qu’on reproduit le problème (Ctrl+C pour sortir).
+
+  - id: tomcat-filtre-sur-un-equipement
+    titre: Tomcat filtré sur un équipement
+    machine: tms
+    niveau: info
+    commande: |-
+      tail -f /var/log/tomcat8/catalina.out | grep -i "{IP}"
+    but: Ne voir que les lignes qui concernent cet équipement.
+
+  - id: erreurs-tomcat-sans-les-piles
+    titre: Erreurs Tomcat sans les piles
+    machine: tms
+    niveau: info
+    commande: |-
+      grep -iE "error|exception" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -40
+    but: Les erreurs sans les lignes « at … » des piles Java.
+
+  - id: pile-complete-d-une-erreur
+    titre: Pile complète d’une erreur
+    machine: tms
+    niveau: info
+    commande: |-
+      grep -m1 -A15 "Unable to connect" /var/log/tomcat8/catalina.out
+    but: Remplacer le texte cherché. La pile dit quel composant échoue (FTP, IMAP, Mongo…).
+
+  - id: erreurs-de-licence
+    titre: Erreurs de licence
+    machine: tms
+    niveau: info
+    commande: |-
+      grep -i "license" /var/log/tomcat8/catalina.out
+    but: Licence / hardware ID.
+
+  - id: fichiers-de-logs-tomcat
+    titre: Fichiers de logs Tomcat
+    machine: tms
+    niveau: info
+    commande: |-
+      ls -lt /var/log/tomcat8/ | head
+    but: Les plus récents en premier.
+
+  - id: historique-d-un-equipement
+    titre: Historique d’un équipement
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo journalctl | grep "{IP}"
+    but: Tout ce que le journal système a vu sur cette IP.
+
+  - id: historique-logs-archives-inclus
+    titre: Historique, logs archivés inclus
+    machine: lin
+    niveau: info
+    commande: |-
+      zgrep "{IP}" /var/log/syslog*
+    but: Cherche aussi dans les syslog compressés des jours précédents.
+
+  - id: logs-d-un-service-sur-1-h
+    titre: Logs d’un service sur 1 h
+    machine: lin
+    niveau: info
+    commande: |-
+      journalctl -u tomcat8 --since "1 hour ago"
+    but: Remplacer tomcat8 par le service voulu.
+
+  - id: liste-des-demarrages
+    titre: Liste des démarrages
+    machine: lin
+    niveau: info
+    commande: |-
+      journalctl --list-boots
+    but: Dates de chaque démarrage connu du journal.
+
+  - id: erreurs-avant-le-dernier-reboot
+    titre: Erreurs avant le dernier reboot
+    machine: lin
+    niveau: info
+    commande: |-
+      journalctl -b -1 -p err | tail -50
+    but: Ce qui s’est mal passé juste avant la coupure ou le redémarrage.
+
+  - id: journal-du-noyau
+    titre: Journal du noyau
+    machine: lin
+    niveau: info
+    commande: |-
+      dmesg -T
+    but: Événements matériels bruts avec l’heure réelle.
+
+  - id: noyau-erreurs-et-liens-reseau
+    titre: 'Noyau : erreurs et liens réseau'
+    machine: lin
+    niveau: info
+    commande: |-
+      dmesg -T | grep -iE "error|fail|link|bond"
+    but: Erreurs disque, carte réseau qui tombe, bond qui bascule.

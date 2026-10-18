@@ -1,0 +1,12 @@
+{
+  "name": "Mémo SSH Cabine",
+  "short_name": "Mémo SSH",
+  "description": "Commandes et procédures pas à pas pour le support cabine cinéma.",
+  "start_url": "./#accueil",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1F3F6",
+  "theme_color": "#2E5BD8",
+  "lang": "fr",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,0 +1,68 @@
+id: lms-plein
+theme: Stockage
+titre: 'LMS plein : trouver et libérer de la place'
+quand: KDM en erreur FTP, ingests qui échouent, SITE DF proche de zéro.
+comprendre: Sur un TCS (Ubuntu), le volume /opt/lms-ymagis contient la bibliothèque (data), les inbox Eclair et IDC (view) et la corbeille du bureau. Plein, il bloque KDM et ingests. On libère d’abord ce qui est déjà jeté (corbeille), puis les contenus validés par le client.
+
+etapes:
+  - titre: Remplissage du volume
+    machine: lms
+    commande: |-
+      df -h /opt/lms-ymagis
+    attendu: Note l’espace libre de départ pour le ticket
+
+  - titre: Répartition, corbeilles comprises
+    machine: lms
+    commande: |-
+      sudo du -xsh /opt/lms-ymagis/* /opt/lms-ymagis/.[!.]* 2>/dev/null | sort -h
+    attendu: view = inbox, .Trash-100x = corbeille du bureau, data = bibliothèque
+
+  - titre: Gros DCP en inbox
+    machine: lms
+    commande: |-
+      sudo du -xh --max-depth=4 /opt/lms-ymagis/view 2>/dev/null | sort -h | tail -30
+    attendu: Longs métrages terminés encore en inbox Eclair / IDC
+
+  - titre: Corbeille du bureau
+    machine: lms
+    commande: |-
+      sudo sh -c 'du -sh /opt/lms-ymagis/.Trash-*/files/* | sort -h | tail -20'
+    attendu: Souvent plusieurs To jamais libérés
+
+  - titre: Films encore exploités
+    machine: tms
+    commande: |-
+      mongo --quiet ytms --eval 'var s={}; db.kdms.find({endDate:{$gte:new Date()}},{name:1,endDate:1}).forEach(function(k){var f=k.name.split("_")[0]; if(!s[f]||k.endDate>s[f]) s[f]=k.endDate}); Object.keys(s).sort().forEach(function(f){print(s[f].toISOString().slice(0,10)+" | "+f)})'
+    attendu: Tout film de cette liste reste en place
+
+  - titre: Validation du client
+    machine: man
+    consigne: Envoyer la liste (film + taille) au client et attendre son accord écrit. Ne garder que les films qu’il cite.
+
+  - titre: Vider la corbeille
+    machine: lms
+    niveau: danger
+    commande: |-
+      sudo sh -c 'rm -rf /opt/lms-ymagis/.Trash-1002/files/* /opt/lms-ymagis/.Trash-1002/info/*' ; df -h /opt/lms-ymagis
+    attendu: Espace libéré immédiatement
+
+  - titre: Préparer la liste de purge (ne supprime rien)
+    machine: lms
+    commande: |-
+      cd /opt/lms-ymagis/view && LISTE=$(ls -d eclair/inbox/*{FILM}*_FTR*) ; echo "$LISTE" ; echo "$LISTE" | wc -l ; echo "$LISTE" | grep -ciE "_TLR|_TSR|_ADV" ; du -sch $LISTE | tail -1
+    attendu: Liste, nombre de dossiers, 0 bande-annonce ou pub, taille totale. Ajouter un motif par film validé.
+
+  - titre: Supprimer la liste (même session)
+    machine: lms
+    niveau: danger
+    commande: |-
+      cd /opt/lms-ymagis/view && rm -rf $LISTE ; df -h /opt/lms-ymagis
+    attendu: Espace libre en hausse de la taille annoncée
+
+  - titre: extra_exchange après la purge
+    machine: lms
+    commande: |-
+      \ps -eo pid,etime,args | grep [e]xtra_exchange ; ls -l /tmp/.extra_receive.lock 2>&1
+    attendu: 'Si le verrou reste sans process : procédure « extra_exchange bloqué »'
+
+attention: 'Purger l’inbox IDC pendant un passage d’extra_exchange peut le faire planter : vérifier ensuite le verrou.'

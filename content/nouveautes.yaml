@@ -1,0 +1,9 @@
+# Journal des nouveautés, affiché dans l’application (le plus récent en premier).
+# Ajoute une entrée à chaque modification utile pour l’équipe.
+- date: 2026-10-18
+  titre: Version 3 en ligne
+  texte: |
+    - Le mémo devient une application en ligne, partagée par toute l’équipe et mise à jour en direct.
+    - Chaque commande s’explique : décomposition, exemple de sortie, comment lire le résultat, que faire si ça ne va pas.
+    - Nouvelle rubrique « Apprendre » pour débuter en SSH.
+    - Lien direct vers chaque fiche (bouton 🔗) à coller dans un ticket.

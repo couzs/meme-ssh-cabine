@@ -1,0 +1,38 @@
+id: son
+titre: Son (Dolby)
+groupe: Salle
+intro: 'Processeur son piloté par le réseau (CP650 : port 61412).'
+
+commandes:
+  - id: processeur-joignable
+    titre: Processeur joignable ?
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 {IP} ; arp -n | grep "{IP} "
+    attendu: « incomplete » = rien ne répond à cette IP
+
+  - id: port-de-controle-cp650
+    titre: Port de contrôle CP650
+    machine: lin
+    niveau: info
+    commande: |-
+      (echo > /dev/tcp/{IP}/61412) 2>/dev/null && echo "61412 OK" || echo "61412 KO"
+    but: 'Sans nc ni timeout : passe par bash.'
+    attention: Peut mettre une vingtaine de secondes à répondre KO.
+
+  - id: dolby-visibles-sur-le-reseau
+    titre: Dolby visibles sur le réseau
+    machine: lin
+    niveau: info
+    commande: |-
+      arp -n | grep -i "00:d0:46"
+    but: Les MAC Dolby commencent par 00:d0:46. D’autres Dolby visibles = réseau OK, problème local à une salle.
+
+  - id: processeur-declare-sur-le-serveur
+    titre: Processeur déclaré sur le serveur
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -n -i -B2 -A8 "cp650\|dolby" /doremi/etc/devices.xml
+    but: IP et port attendus par le serveur Doremi.

@@ -1,0 +1,144 @@
+# Variables du site : elles s’insèrent dans les commandes à la place de {CLE}.
+# format : ip, net3, mac, iface, path, film, winif, uuid (voir docs/MODIFIER-LE-CONTENU.md)
+
+
+# --- Équipement ---
+- cle: IP
+  libelle: Équipement ciblé
+  groupe: Équipement
+  format: ip
+  exemple: 192.0.2.41
+- cle: MAC
+  libelle: MAC de l’équipement
+  groupe: Équipement
+  format: mac
+  exemple: 00:04:a5:00:00:01
+- cle: ING
+  libelle: IP d’ingest de la salle
+  groupe: Équipement
+  format: ip
+  exemple: 198.51.100.4
+
+# --- Réseau ORC ---
+- cle: NET
+  libelle: Réseau de gestion (3 octets)
+  groupe: Réseau ORC
+  format: net3
+  exemple: 192.0.2
+- cle: ORC
+  libelle: IP de l’ORC sur ce réseau
+  groupe: Réseau ORC
+  format: ip
+  exemple: 192.0.2.250
+- cle: IF
+  libelle: Bridge gestion (br0 / br2)
+  groupe: Réseau ORC
+  format: iface
+  exemple: br2
+- cle: NET_STO
+  libelle: Réseau d’ingest (3 octets)
+  groupe: Réseau ORC
+  format: net3
+  exemple: 198.51.100
+- cle: IF_STO
+  libelle: Bridge ingest (br3)
+  groupe: Réseau ORC
+  format: iface
+  exemple: br3
+- cle: PHY
+  libelle: Port physique (eth1…)
+  groupe: Réseau ORC
+  format: iface
+  exemple: eth1
+
+# --- NAT d’une salle ---
+- cle: VIP
+  libelle: IP virtuelle côté TMS
+  groupe: NAT d’une salle
+  format: ip
+  exemple: 203.0.113.41
+- cle: OLD
+  libelle: IP réelle actuelle
+  groupe: NAT d’une salle
+  format: ip
+  exemple: 192.0.2.42
+- cle: REAL
+  libelle: Nouvelle IP réelle
+  groupe: NAT d’une salle
+  format: ip
+  exemple: 192.0.2.41
+
+# --- IP de secours ---
+- cle: BAD_IP
+  libelle: IP où l’équipement est parti
+  groupe: IP de secours
+  format: ip
+  exemple: 192.168.100.2
+- cle: BAD_GW
+  libelle: Passerelle qu’il cherche
+  groupe: IP de secours
+  format: ip
+  exemple: 192.168.100.1
+- cle: BAD_NET
+  libelle: Réseau de cette IP
+  groupe: IP de secours
+  format: ip
+  exemple: 192.168.100.0
+- cle: TMP_IP
+  libelle: IP temporaire de test
+  groupe: IP de secours
+  format: ip
+  exemple: 192.168.100.250
+
+# --- Stockage & KDM ---
+- cle: LMS
+  libelle: IP de gestion du LMS / TCS
+  groupe: Stockage & KDM
+  format: ip
+  exemple: 192.0.2.4
+- cle: KDM_DIR
+  libelle: Dossier KDM sur le LMS
+  groupe: Stockage & KDM
+  format: path
+  exemple: /opt/lms-ymagis/view/ftp/dcp/ymagis/Desktop/KDM
+- cle: FILM
+  libelle: Film recherché (motif)
+  groupe: Stockage & KDM
+  format: film
+  exemple: NomDuFilm
+
+# --- Salle & automation ---
+- cle: SRV
+  libelle: IP du serveur de la salle
+  groupe: Salle & automation
+  format: ip
+  exemple: 192.0.2.13
+- cle: JNR
+  libelle: IP du JNIOR de la salle
+  groupe: Salle & automation
+  format: ip
+  exemple: 192.0.2.12
+- cle: JNR_SRC
+  libelle: IP d’un JNIOR de référence
+  groupe: Salle & automation
+  format: ip
+  exemple: 192.0.2.22
+
+# --- DCP & ingest ---
+- cle: CPL
+  libelle: UUID de la CPL
+  groupe: DCP & ingest
+  format: uuid
+  exemple: 00000000-0000-4000-8000-000000000001
+- cle: DCP_DIR
+  libelle: Dossier du DCP (clé, copie…)
+  groupe: DCP & ingest
+  format: path
+  exemple: /media/usb0/NomDuFilm_FTR_SMPTE_OV
+
+# --- PC ---
+- cle: WIN_IF
+  libelle: Carte réseau du PC
+  groupe: PC
+  format: winif
+  exemple: Ethernet

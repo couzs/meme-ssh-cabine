@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#2E5BD8">
+<meta name="description" content="Commandes et procédures pas à pas pour le support cabine cinéma.">
+<title>__TITRE__</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<a class="skip" href="#out">Aller au contenu</a>
+<div class="update" id="update" role="status" hidden>
+  <span>Une nouvelle version du mémo est en ligne.</span>
+  <button class="linkbtn primary" id="reload" type="button">Recharger</button>
+</div>
+
+<div class="wrap notranslate" translate="no">
+  <header class="top">
+    <div class="row1">
+      <a class="brand" href="#accueil" aria-label="Accueil du mémo">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M8 11l5 5-5 5M15 22h9" fill="none" stroke="var(--logo-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="brand-txt"><span class="brand-t" id="brand-t">__TITRE__</span><span class="brand-s" id="brand-s"></span></span>
+      </a>
+      <div class="search" role="search">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="q" type="search" placeholder="Rechercher un symptôme, une commande, un mot…" autocomplete="off" spellcheck="false" aria-label="Rechercher une commande, une procédure ou une page">
+        <kbd>/</kbd>
+      </div>
+      <div class="acts">
+        <button class="tbtn" id="btn-news" type="button" title="Nouveautés">Nouveautés<span class="dot" id="news-dot" hidden></span></button>
+        <button class="tbtn" id="btn-help" type="button" title="Aide (touche ?)">Aide</button>
+        <button class="tbtn icon" id="btn-theme" type="button" title="Thème"><span id="theme-ico">◐</span><span class="sr">Changer de thème</span></button>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="seg" role="group" aria-label="Filtrer par machine" id="seg-m"></div>
+      <div class="seg" role="group" aria-label="Affichage" id="seg-v">
+        <button data-v="guide" type="button" title="Explications dépliées : idéal pour apprendre">Guidé</button>
+        <button data-v="std" type="button" title="Explications repliées, à ouvrir au besoin">Standard</button>
+        <button data-v="compact" type="button" title="Commandes seules : pour ceux qui connaissent">Compact</button>
+      </div>
+      <button class="tbtn" id="favonly" type="button" aria-pressed="false">★ Favoris</button>
+    </div>
+  </header>
+
+  <details class="vars" id="varsbox">
+    <summary><span class="vs-title">Mon site</span><span class="vs-site" id="vs-site"></span><span class="vs-count" id="vs-count"></span><span class="vs-lock" id="vs-lock"></span></summary>
+    <p class="vhelp">Renseigne ici les adresses du site sur lequel tu interviens : elles remplacent les <span class="vchip">{VARIABLES}</span> dans toutes les commandes (en jaune). Une valeur au mauvais format est barrée et bloque la copie.</p>
+    <div class="vault" id="vault">
+      <div class="vault-msg" id="vault-msg"></div>
+      <form class="vault-form" id="vault-form" autocomplete="off" novalidate>
+        <label for="vpass" class="sr">Mot de passe du coffre</label>
+        <input id="vpass" type="password" minlength="8" maxlength="128" autocomplete="off" spellcheck="false" placeholder="Mot de passe du coffre (8 caractères min.)">
+        <button class="linkbtn primary" id="vgo" type="submit">Ouvrir</button>
+      </form>
+      <div class="vault-open" id="vault-open" hidden>
+        <button class="linkbtn" id="vlock" type="button">Verrouiller</button>
+        <button class="linkbtn" id="vforget" type="button">Supprimer le coffre</button>
+      </div>
+    </div>
+    <div class="sitebar">
+      <label for="site">Profil</label>
+      <select id="site"></select>
+      <span class="grow"></span>
+      <label for="sitename">Enregistrer sous</label>
+      <input id="sitename" placeholder="ex. Cinéma Lyon" maxlength="40" autocomplete="off" spellcheck="false">
+      <button class="linkbtn primary" id="sitesave" type="button">Enregistrer</button>
+      <button class="linkbtn" id="sitedel" type="button">Supprimer ce profil</button>
+    </div>
+    <div class="vgroups" id="vgroups"></div>
+    <div class="vfoot"><span>Les sites ne sont mémorisés que dans le coffre chiffré de ce navigateur (AES-256), jamais sur le serveur ni dans le dépôt.</span><button class="linkbtn" id="vclear" type="button">Vider les variables</button></div>
+  </details>
+
+  <div class="layout">
+    <nav class="cats" id="cats" aria-label="Rubriques"></nav>
+    <main id="main">
+      <div class="meta" id="meta" aria-live="polite"></div>
+      <div id="out" tabindex="-1"></div>
+    </main>
+  </div>
+
+  <footer class="foot" id="foot"></footer>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-t">
+  <div class="dlg-head"><h2 id="dlg-t"></h2><button class="ibtn" id="dlg-x" type="button" aria-label="Fermer">✕</button></div>
+  <div class="dlg-body" id="dlg-b"></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+/*__FORMATS__*/
+/*__DATA__*/
+/*__APP__*/
+})();
+</script>
+</body>
+</html>

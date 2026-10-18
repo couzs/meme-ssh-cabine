@@ -1,0 +1,113 @@
+id: lms
+titre: 'LMS / TCS : stockage'
+groupe: Stockage
+intro: 'TCS Ubuntu : volume /opt/lms-ymagis avec data, view (inbox Eclair et IDC) et corbeille du bureau.'
+
+commandes:
+  - id: remplissage-du-volume-de-contenu
+    titre: Remplissage du volume de contenu
+    machine: lms
+    niveau: info
+    commande: |-
+      df -h /opt/lms-ymagis
+    but: Volume de 18 To typique.
+    attendu: Use% 100 % ou quelques Ko libres = dépôts KDM et ingests en échec
+
+  - id: repartition-corbeilles-comprises
+    titre: Répartition, corbeilles comprises
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo du -xsh /opt/lms-ymagis/* /opt/lms-ymagis/.[!.]* 2>/dev/null | sort -h
+    but: data = bibliothèque, view = inbox Eclair / IDC, .Trash-100x = corbeille du bureau.
+    attention: Sans sudo, sysadm voit les dossiers de contenu à 0.
+
+  - id: bibliotheque-par-dossier
+    titre: Bibliothèque par dossier
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo du -xh --max-depth=2 /opt/lms-ymagis/data 2>/dev/null | sort -h | tail -25
+    but: Les 25 plus gros dossiers de data/dcp.
+
+  - id: vue-complete-inbox
+    titre: Vue complète (inbox)
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo du -xh --max-depth=4 /opt/lms-ymagis/view 2>/dev/null | sort -h | tail -30
+    but: Fait ressortir les gros DCP en inbox Eclair et IDC.
+
+  - id: inbox-eclair-par-taille
+    titre: Inbox Eclair par taille
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo sh -c 'du -sh /opt/lms-ymagis/view/eclair/inbox/* | sort -h'
+    but: 'Le * doit être développé par root : d’où le sh -c.'
+
+  - id: inbox-eclair-par-date
+    titre: Inbox Eclair par date
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo ls -lt /opt/lms-ymagis/view/eclair/inbox | head -40
+    but: Dernières réceptions en premier.
+
+  - id: inbox-idc-par-taille
+    titre: Inbox IDC par taille
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo sh -c 'du -sh /opt/lms-ymagis/view/idc/inbox/* | sort -h'
+    but: Des DCP de plusieurs années = bloqués en boucle par extra_exchange.
+
+  - id: chercher-un-film-partout
+    titre: Chercher un film partout
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo find /opt/lms-ymagis/data/dcp /opt/lms-ymagis/view/eclair/inbox /opt/lms-ymagis/view/idc/inbox -maxdepth 3 -iname "*{FILM}*" -type d
+    but: Bibliothèque et inbox. Utile avant une purge.
+
+  - id: corbeille-plus-gros-elements
+    titre: 'Corbeille : plus gros éléments'
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo sh -c 'du -sh /opt/lms-ymagis/.Trash-*/files/* | sort -h | tail -20'
+    but: Ce que l’exploitant a supprimé depuis le bureau sans vider la corbeille.
+
+  - id: corbeille-dates-de-suppression
+    titre: 'Corbeille : dates de suppression'
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo sh -c 'grep -h DeletionDate /opt/lms-ymagis/.Trash-*/info/*.trashinfo | sort | sed -n "1p;\$p"'
+    but: Plus ancienne et plus récente suppression.
+
+  - id: vider-la-corbeille-du-bureau
+    titre: Vider la corbeille du bureau
+    machine: lms
+    niveau: danger
+    commande: |-
+      sudo sh -c 'rm -rf /opt/lms-ymagis/.Trash-1002/files/* /opt/lms-ymagis/.Trash-1002/info/*' ; df -h /opt/lms-ymagis
+    but: Libère tout de suite l’espace des contenus déjà supprimés par l’exploitant.
+    attention: Uniquement après accord écrit du client. Irréversible.
+
+  - id: fichiers-supprimes-encore-ouverts
+    titre: Fichiers supprimés encore ouverts
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo lsof +L1 2>/dev/null | grep lms-ymagis | head -20
+    but: Explique un écart entre df et du.
+
+  - id: xml-d-inbox-mal-formes
+    titre: XML d’inbox mal formés
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo find /opt/lms-ymagis/view/eclair/inbox /opt/lms-ymagis/view/idc/inbox -maxdepth 2 -type f \( -iname "*.xml" -o -iname ASSETMAP -o -iname VOLINDEX \) -exec sh -c 'c=$(head -c1 "$1"); [ "$c" != "<" ] && echo "$1"' _ {} \;
+    but: Un XML qui ne commence pas par « < » peut bloquer le script de réception.
+    attendu: Aucune ligne = rien de suspect

@@ -1,0 +1,37 @@
+# Réglages généraux du Mémo SSH Cabine.
+titre: Mémo SSH Cabine
+sous_titre: TMS · ORC · LMS · Doremi · Barco · JNIOR
+
+# Dépôt GitHub : sert aux liens « Modifier cette fiche » (l’édition se fait sur GitHub, la mise en ligne est automatique).
+depot: couzs/memo-ssh-cabine
+branche: main
+# Contact affiché dans « Aide » (laisser vide pour masquer)
+contact: ''
+
+# Adresses d’exemple acceptées en plus des adresses de documentation (192.0.2.x, 198.51.100.x, 203.0.113.x).
+# Le build refuse toute autre IP écrite en dur : aucune donnée réelle de site ne doit entrer dans l’outil.
+ip_autorisees:
+  - 192.168.100.*
+
+# Machines : code utilisé dans les fiches → nom affiché et description.
+machines:
+  tms: { label: TMS, desc: "Serveur central du cinéma (Ubuntu) : planning, KDM, supervision. On s’y connecte en premier." }
+  orc: { label: ORC, desc: "Routeur du site : NAT vers les salles, réseaux de gestion et d’ingest. Seule machine avec tcpdump." }
+  lms: { label: LMS, desc: "Bibliothèque des films : TCS (Ubuntu) ou LMS Debian (FTP)." }
+  lin: { label: Linux, desc: "Commande Linux générique : fonctionne sur le TMS, l’ORC et le LMS." }
+  dor: { label: Doremi, desc: "Serveur de salle Doremi (DCP2000, ShowVault, IMS). Système réduit : pas de nc, timeout, base64 ni curl." }
+  jnr: { label: JNIOR, desc: "Boîtier d’automation en telnet. Une seule commande à la fois." }
+  win: { label: PC, desc: "PC du site ou ton poste Windows (PowerShell en administrateur)." }
+  man: { label: Manuel, desc: "Action à faire à la main : interface web, appel au client, vérification sur place." }
+
+# Niveaux de risque : guident le technicien et protègent la copie.
+niveaux:
+  info:   { label: lecture, desc: "Lit seulement : aucun risque, à lancer sans hésiter." }
+  action: { label: modifie, desc: "Change quelque chose (service, IP, fichier). Toutes les variables doivent être remplies avant de copier." }
+  danger: { label: risque,  desc: "Coupe un service ou supprime des données. Double clic de confirmation, accord du client si besoin." }
+
+# Ordre des thèmes de procédures
+themes: [TMS & KDM, Stockage, DCP & ingest, Automation, Réseau, Système]
+
+# Ordre des groupes du menu
+groupes: [Apprendre, TMS & Linux, Réseau, Stockage, Salle, PC, Repères]

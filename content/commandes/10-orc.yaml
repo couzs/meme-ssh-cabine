@@ -1,0 +1,171 @@
+id: orc
+titre: 'ORC : captures'
+groupe: Réseau
+intro: tcpdump, ARP, MAC apprises par les bridges. L’ORC est le seul à avoir tcpdump.
+
+commandes:
+  - id: role-des-bridges
+    titre: Rôle des bridges
+    machine: orc
+    niveau: info
+    commande: |-
+      head -8 /etc/ferm/netconfig.conf ; brctl show 2>/dev/null || bridge link
+    but: iface_mgt / iface_sto = réseaux réels, iface_vmgt / iface_vsto = côté TMS. Puis les ports physiques de chaque bridge.
+
+  - id: trouver-le-bridge-d-un-reseau
+    titre: Trouver le bridge d’un réseau
+    machine: orc
+    niveau: info
+    commande: |-
+      ip -o -4 addr show | awk -v n="{NET}." 'index($4,n)==1{print $2; exit}'
+    but: À reporter dans la variable IF.
+
+  - id: etat-du-bond
+    titre: État du bond
+    machine: orc
+    niveau: info
+    commande: |-
+      cat /proc/net/bonding/bond0
+    but: 'Cartes du bond et lesquelles ont un lien (MII Status: up).'
+
+  - id: lien-d-un-port-physique
+    titre: Lien d’un port physique
+    machine: orc
+    niveau: info
+    commande: |-
+      cat /sys/class/net/{PHY}/carrier /sys/class/net/{PHY}/speed
+    but: Fonctionne même sans ethtool.
+    attendu: 1 puis 1000 = câble branché, 1 Gb/s
+
+  - id: capter-tous-les-barco
+    titre: Capter tous les Barco
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 60 tcpdump -i {IF} -n -e 'ether[6:2] == 0x0004 and ether[8:1] == 0xa5'
+    but: Retrouve un projecteur parti sur une mauvaise IP.
+    attention: 'Pas de tcpdump sur le TMS : passer par l’ORC.'
+
+  - id: qui-cherche-qui-arp
+    titre: Qui cherche qui (ARP)
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 60 tcpdump -i {IF} -n -e arp
+    but: « who-has X tell Y » sans réponse = X n’existe pas sur ce réseau.
+
+  - id: arp-hors-bruit-du-reseau-de-gestion
+    titre: ARP hors bruit du réseau de gestion
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 120 tcpdump -i {IF_STO} -n -e 'arp and not src net {NET}.0/24'
+    but: Fait ressortir une IP inattendue (port d’ingest mal configuré).
+
+  - id: qui-repond-a-une-ip-arp
+    titre: Qui répond à une IP (ARP)
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 30 tcpdump -i {IF_STO} -n -e 'arp and host {ING}'
+    but: Pendant un ping depuis une autre session.
+    attendu: Seulement des « who-has » = personne ne porte cette IP
+
+  - id: mac-apprises-par-les-bridges
+    titre: MAC apprises par les bridges
+    machine: orc
+    niveau: info
+    commande: |-
+      bridge -s fdb show | grep -i "{MAC}"
+    but: Sur quel port la MAC a été vue.
+    attendu: 'used X/Y : Y = secondes depuis sa dernière trame émise'
+
+  - id: toutes-les-mac-barco-apprises
+    titre: Toutes les MAC Barco apprises
+    machine: orc
+    niveau: info
+    commande: |-
+      bridge -s fdb show | grep -i "00:04:a5"
+    but: Une MAC Barco apprise sans IP dans ip neigh = port actif mais sans adresse.
+
+  - id: trafic-d-une-mac-sur-le-port-physique
+    titre: Trafic d’une MAC sur le port physique
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 120 tcpdump -i {PHY} -n -e -vv ether src {MAC} -c 20
+    but: 'Sur un bridge, on ne voit que le broadcast et le trafic vers l’ORC : pour une MAC précise, écouter le port physique.'
+    attention: L’interface « any » refuse les filtres ether.
+
+  - id: trafic-d-une-ip-hors-arp
+    titre: Trafic d’une IP (hors ARP)
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 30 tcpdump -i {IF} -n host {IP} and not arp -c 20
+    but: Voir si une connexion s’établit vraiment.
+
+  - id: requetes-dhcp
+    titre: Requêtes DHCP
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 60 tcpdump -i {IF} -n port 67 or port 68
+    but: Équipement en DHCP qui ne trouve pas de serveur.
+
+  - id: capture-pour-wireshark
+    titre: Capture pour Wireshark
+    machine: orc
+    niveau: info
+    commande: |-
+      timeout 120 tcpdump -i {IF} -n -w /tmp/capture_$(date +%H%M).pcap host {IP}
+    but: Fichier .pcap à récupérer pour une analyse ou un ticket constructeur.
+
+  - id: balayage-gestion-ingest
+    titre: Balayage gestion + ingest
+    machine: orc
+    niveau: info
+    commande: |-
+      ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & ping -c1 -W1 {NET_STO}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh | grep -v FAILED | sort
+    but: Les deux réseaux en environ 2 secondes, puis toutes les MAC vivantes.
+
+  - id: toutes-les-ip-d-ingest-declarees
+    titre: Toutes les IP d’ingest déclarées
+    machine: orc
+    niveau: info
+    commande: |-
+      for ip in $(grep -Eo "= {NET_STO}\.[0-9]+" /etc/ymagis/network.cfg | cut -d' ' -f2 | sort -u); do ping -c1 -W1 $ip >/dev/null 2>&1 && echo "OK   $ip" || echo "KO   $ip"; done
+    but: Si une seule salle est KO, le problème est dans la salle, pas sur l’ORC.
+
+  - id: ajouter-une-ip-temporaire
+    titre: Ajouter une IP temporaire
+    machine: orc
+    niveau: action
+    commande: |-
+      ip addr add {TMP_IP}/24 dev {IF}
+    but: Pour joindre un équipement sur un autre sous-réseau.
+    attention: Toujours la retirer après.
+
+  - id: retirer-l-ip-temporaire
+    titre: Retirer l’IP temporaire
+    machine: orc
+    niveau: action
+    commande: |-
+      ip addr del {TMP_IP}/24 dev {IF}
+    but: Nettoyage.
+
+  - id: routage-actif
+    titre: Routage actif
+    machine: orc
+    niveau: info
+    commande: |-
+      sysctl net.ipv4.ip_forward
+    attendu: net.ipv4.ip_forward = 1
+
+  - id: regles-forward-avec-compteurs
+    titre: Règles FORWARD avec compteurs
+    machine: orc
+    niveau: info
+    commande: |-
+      iptables -L FORWARD -nv --line-numbers
+    but: Les compteurs qui montent montrent quelle règle laisse passer ou bloque.

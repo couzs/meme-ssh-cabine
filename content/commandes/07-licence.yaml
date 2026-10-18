@@ -1,0 +1,38 @@
+id: licence
+titre: Licence & monitoring
+groupe: TMS & Linux
+intro: Licence TMS, remontée vers le monitoring, installations.
+
+commandes:
+  - id: lire-la-licence
+    titre: Lire la licence
+    machine: tms
+    niveau: info
+    commande: |-
+      gpg --decrypt /etc/tms-ymagis-daemon/license/license
+    but: Vérifier la validité de la licence.
+
+  - id: remontee-au-monitoring
+    titre: Remontée au monitoring
+    machine: tms
+    niveau: info
+    commande: |-
+      ls -ltr /var/cache/ymagis-pandora-tcs/backups/
+    but: Les fichiers récents prouvent que les logs remontent.
+
+  - id: installer-nmap
+    titre: Installer nmap
+    machine: lin
+    niveau: action
+    commande: |-
+      sudo apt update && sudo apt install nmap -y
+    but: Installation de nmap.
+    attention: Pas sur un serveur de prod sans accord. Le noter dans le ticket.
+
+  - id: installer-dcp-creator
+    titre: Installer DCP Creator
+    machine: tms
+    niveau: action
+    commande: |-
+      sudo apt-get update && sudo apt-get install tms-ymagis-plugin-quickdcp -y
+    but: Installation du plugin QuickDCP sur le TMS.

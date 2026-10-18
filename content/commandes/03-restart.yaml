@@ -1,0 +1,39 @@
+id: restart
+titre: Redémarrage
+groupe: TMS & Linux
+intro: À faire en priorité en cas de bug TMS.
+
+commandes:
+  - id: relancer-le-c-ur-tms
+    titre: Relancer le cœur TMS
+    machine: tms
+    niveau: action
+    commande: |-
+      /etc/init.d/cinemanext-monitoring-remote restart
+    but: Relance ingest + supervision. À faire en priorité en cas de bug.
+
+  - id: relancer-l-interface-web
+    titre: Relancer l’interface web
+    machine: tms
+    niveau: action
+    commande: |-
+      /etc/init.d/tomcat8 restart
+    but: Interface web TMS figée ou inaccessible.
+
+  - id: relancer-mongodb
+    titre: Relancer MongoDB
+    machine: tms
+    niveau: action
+    commande: |-
+      systemctl restart mongodb
+    but: Base qui ne répond plus.
+    attention: Relancer ensuite le cœur TMS et Tomcat.
+
+  - id: relance-complete-tms
+    titre: Relance complète TMS
+    machine: tms
+    niveau: danger
+    commande: |-
+      sudo service tomcat8 stop ; sudo /etc/init.d/cinemanext-monitoring-remote stop ; sudo service mongodb stop ; sudo sleep 10 ; sudo service mongodb start ; sudo /etc/init.d/cinemanext-monitoring-remote start ;sudo service tomcat8 start
+    but: Arrête les services TMS puis les relance dans l’ordre.
+    attention: 'Coupe le TMS environ une minute : pas pendant une séance.'
