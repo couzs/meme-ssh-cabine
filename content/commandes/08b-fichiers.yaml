@@ -1,0 +1,155 @@
+id: fichiers
+titre: Fichiers & transferts
+groupe: TMS & Linux
+intro: 'Lire un gros fichier, retrouver ce qui a changé, copier un fichier entre machines, vérifier qu’une copie est identique, préparer une archive de logs pour un ticket.'
+
+commandes:
+  - id: lire-un-fichier-page-par-page
+    titre: Lire un fichier page par page
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo less +G /var/log/tomcat8/catalina.out
+    but: 'Ouvre un fichier, même énorme, sans le charger entièrement, et se place directement à la fin (les lignes les plus récentes).'
+    detail: |
+      less → lecteur de fichier page par page
+      +G → commence à la fin du fichier
+    lecture: |
+      - `Espace` / `b` : page suivante / précédente. `G` fin, `g` début.
+      - `/mot` puis Entrée : cherche vers le bas ; `?mot` vers le haut ; `n` occurrence suivante.
+      - `F` : suit le fichier en direct comme tail -f (Ctrl+C pour revenir).
+      - `q` : quitter.
+    mots: [less, lire, fichier, log]
+    maj: 2026-10-18
+
+  - id: fichiers-modifies-recemment
+    titre: Fichiers modifiés récemment
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo find /etc -xdev -type f -mmin -1440 -printf '%TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null | sort | tail -30
+    but: 'Les fichiers de configuration modifiés depuis 24 heures, du plus ancien au plus récent. Répond à « qu’est-ce qui a changé depuis hier ? ».'
+    detail: |
+      find /etc → cherche dans la configuration (remplacer par un autre dossier si besoin)
+      -mmin -1440 → modifiés il y a moins de 1440 minutes (24 h)
+      -printf '…' → affiche la date, l’heure et le chemin
+      sort | tail -30 → les 30 plus récents, le plus récent en dernier
+    exemple: |
+      2026-10-18 09:14  /etc/ymagis/network.cfg
+      2026-10-18 09:15  /etc/ferm/netconfig.conf
+    lecture: 'Une modification à une heure où personne n’est intervenu peut venir de Puppet (voir « Puppet actif ? »).'
+    mots: [modifié, changement, find, configuration]
+    maj: 2026-10-18
+
+  - id: comparer-deux-fichiers
+    titre: Comparer deux fichiers
+    machine: lin
+    niveau: info
+    commande: |-
+      diff -u /root/network.cfg.bak_AAAA-MM-JJ_HHMM /etc/ymagis/network.cfg
+    but: 'Montre exactement ce qui diffère entre une sauvegarde et le fichier actuel. Remplace le nom de la sauvegarde.'
+    detail: |
+      diff -u → format « unifié », le plus lisible
+    exemple: |
+      @@ -40,3 +40,3 @@
+      -203.0.113.41 = 192.0.2.42
+      +203.0.113.41 = 192.0.2.41
+    lecture: 'Les lignes en `-` sont dans le premier fichier seulement, les lignes en `+` dans le second. Aucune sortie = fichiers identiques.'
+    mots: [diff, comparer, sauvegarde]
+    maj: 2026-10-18
+
+  - id: copier-un-fichier-vers-une-autre-machine
+    titre: Copier un fichier vers une autre machine
+    machine: lin
+    niveau: action
+    commande: |-
+      scp /tmp/capture_1432.pcap sysadm@{LMS}:/tmp/
+    but: 'Copie un fichier vers une autre machine par SSH. Remplace le nom du fichier et la machine de destination.'
+    detail: |
+      scp → copie sécurisée (secure copy) par SSH
+      fichier → ce qu’on envoie
+      utilisateur@IP:/tmp/ → où on le dépose
+    exemple: |
+      capture_1432.pcap                  100%   18MB  92.4MB/s   00:00
+    lecture: 'La ligne se termine par 100 % quand la copie est finie. Pour récupérer un fichier sur ton poste, utilise WinSCP ou `scp utilisateur@IP:/chemin/fichier .` depuis ton poste.'
+    mots: [scp, copier, transfert, fichier]
+    maj: 2026-10-18
+
+  - id: copier-un-dossier-avec-reprise
+    titre: Copier un dossier avec reprise
+    machine: lin
+    niveau: action
+    commande: |-
+      rsync -a --partial --info=progress2 {DCP_DIR}/ /tmp/copie_dcp/
+    but: 'Copie un dossier entier (un DCP par exemple) en affichant l’avancement. Relancée après une coupure, elle reprend là où elle s’était arrêtée.'
+    detail: |
+      rsync -a → copie en gardant dates, droits et sous-dossiers
+      --partial → garde les fichiers à moitié copiés pour reprendre
+      --info=progress2 → avancement global (%, débit, temps restant)
+      DOSSIER/ → le « / » final copie le contenu du dossier, pas le dossier lui-même
+    exemple: |
+       38,412,903,424  42%  110.21MB/s    0:05:32
+    lecture: 'Le pourcentage et le temps restant portent sur tout le dossier. Une copie relancée qui repasse vite à 100 % = tout était déjà là.'
+    attention: 'Vérifie la place de destination avant (`df -h`). rsync doit être installé sur la machine (absent des Doremi).'
+    mots: [rsync, copier, reprise, dcp]
+    maj: 2026-10-18
+
+  - id: empreinte-d-un-fichier
+    titre: Empreinte d’un fichier (copie identique ?)
+    machine: lin
+    niveau: info
+    commande: |-
+      md5sum /chemin/vers/le/fichier
+    but: 'Calcule l’empreinte d’un fichier. Lancée sur la source et sur la copie, elle prouve que les deux sont identiques.'
+    exemple: |
+      9e107d9d372bb6826bd81d3542a419d6  /tmp/copie_dcp/NomDuFilm_j2c_r01.mxf
+    lecture: 'Deux empreintes identiques = fichiers identiques à l’octet près. Une seule lettre différente = la copie est abîmée. Pour comparer à une PKL de DCP, utiliser plutôt « Taille et hash d’un fichier » (SHA-1 en base64).'
+    voir: [taille-et-hash-d-un-fichier]
+    mots: [md5, empreinte, copie, vérifier]
+    maj: 2026-10-18
+
+  - id: archive-de-logs-pour-un-ticket
+    titre: Archive de logs pour un ticket
+    machine: lin
+    niveau: action
+    commande: |-
+      sudo tar czf /tmp/logs_$(hostname)_$(date +%F_%H%M).tar.gz /var/log/tomcat8/catalina.out /var/log/syslog 2>/dev/null ; ls -lh /tmp/logs_*.tar.gz
+    but: 'Rassemble les journaux utiles dans une seule archive compressée, nommée avec la machine et l’heure, à joindre à un ticket N2/N3.'
+    detail: |
+      tar czf → crée (c) une archive compressée (z) dans le fichier (f) indiqué
+      $(hostname)_$(date …) → nom de machine et horodatage dans le nom
+      ls -lh → affiche l’archive créée et sa taille
+    lecture: 'Récupère ensuite le fichier avec WinSCP ou scp, puis supprime-le de /tmp.'
+    attention: 'Les journaux peuvent contenir des adresses e-mail ou des identifiants : ne les envoie qu’au support.'
+    mots: [archive, tar, logs, ticket]
+    maj: 2026-10-18
+
+  - id: surveiller-une-commande
+    titre: Relancer une commande toutes les 2 secondes
+    machine: lin
+    niveau: info
+    commande: |-
+      watch -n 2 'df -h /opt/lms-ymagis'
+    but: 'Rafraîchit le résultat d’une commande en continu. Pratique pour voir un disque se libérer pendant une purge ou un ingest avancer.'
+    detail: |
+      watch → relance la commande et réaffiche son résultat
+      -n 2 → toutes les 2 secondes
+      '…' → la commande à surveiller, entre apostrophes
+    lecture: 'Ctrl+C pour arrêter. Ajoute `-d` pour surligner ce qui change entre deux rafraîchissements.'
+    mots: [watch, surveiller, rafraîchir]
+    maj: 2026-10-18
+
+  - id: garder-une-commande-apres-deconnexion
+    titre: Garder une commande longue après déconnexion
+    machine: lin
+    niveau: info
+    commande: |-
+      nohup COMMANDE_LONGUE > /tmp/travail.log 2>&1 &
+    but: 'Lance une commande longue (copie, vérification de hash) qui continue même si la session SSH se coupe. Remplace COMMANDE_LONGUE.'
+    detail: |
+      nohup → la commande ignore la fermeture de la session
+      > /tmp/travail.log 2>&1 → tout ce qu’elle affiche va dans ce fichier
+      & → elle tourne en arrière-plan, l’invite revient tout de suite
+    lecture: 'Le numéro affiché ([1] 12345) est celui du process. Suis l’avancement avec `tail -f /tmp/travail.log`, vérifie qu’elle tourne encore avec `ps -p 12345`.'
+    mots: [nohup, arrière-plan, déconnexion, long]
+    maj: 2026-10-18

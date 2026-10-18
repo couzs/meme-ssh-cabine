@@ -18,6 +18,7 @@ intro: Ce qu’on a appris à la dure.
 - Coller un bloc pendant une saisie (read, connexion ftp) : les lignes suivantes sont avalées. Taper identifiant et mot de passe à la main, puis coller.
 - Sur le TCS : `\ps` contourne l’alias ps ; sysadm voit les dossiers de contenu à 0 (passer par sudo) ; un * dans un dossier protégé se développe avec `sudo sh -c '…'`.
 - Distinguer ce qui est littéral de ce qui est à remplacer : les valeurs en jaune viennent des variables du site.
+- Coller plusieurs commandes d’un coup est dangereux si l’une d’elles demande un mot de passe (`sudo`, `ssh`, `ftp`) : le mot de passe avale les lignes suivantes. Le mémo ne propose « Copier tout » que lorsque c’est sans risque.
 - Telnet sur un JNIOR : une seule commande à la fois, les blocs collés s’entremêlent. Dans jrmon, n’importe quelle touche arrête l’affichage.
 - FTP : toujours en binaire pour un DCP ou un fichier .jnior. Le mode ASCII modifie les fins de ligne et abîme les fichiers.
 - Un test d’écriture FTP se fait dans le dossier de dépôt (lms/), jamais à la racine.

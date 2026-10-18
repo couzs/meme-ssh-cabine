@@ -1,6 +1,11 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
 - date: 2026-10-18
+  titre: Nouvelle rubrique « Fichiers & transferts »
+  texte: |
+    - Lire un gros log avec less, retrouver ce qui a changé depuis hier, comparer une sauvegarde, copier avec scp ou rsync, vérifier une copie, préparer une archive de logs pour un ticket.
+    - Repères ORC : schéma du chemin TMS → ORC → salle. Glossaire enrichi (bridge, bond, MAC, ARP, DHCP, SNMP…).
+- date: 2026-10-18
   titre: Relecture complète de l’outil
   texte: |
     - Toutes les fiches ont désormais au moins une aide à la lecture (résultat attendu, comment lire, exemple).

@@ -5,6 +5,17 @@ groupe: Repères
 intro: Rôle des bridges et du NAT 1:1.
 ---
 
+### Le chemin d’une commande du TMS vers une salle
+
+```
+ TMS ──► br0 (IP virtuelle 203.0.113.41) ──► ORC : NAT 1:1 ──► br2 (IP réelle 192.0.2.42) ──► serveur de salle
+ TMS ──► br1 (IP virtuelle d’ingest)     ──► ORC : NAT 1:1 ──► br3 / bond0 (réseau d’ingest)  ──► port d’ingest du serveur
+                                                   │
+                                                   └── br4 : sortie WAN, VPN de supervision (tun0 / tun1)
+```
+
+Quand le TMS « ne voit plus » une salle, on remonte ce chemin : l’IP virtuelle existe-t-elle (network.cfg) ? la règle NAT pointe-t-elle vers la bonne IP réelle (iptables -t nat) ? l’IP réelle répond-elle (ping, ip neigh) ?
+
 ### ORC en NAT 1:1
 
 | Bridge | Rôle | Rôle dans netconfig.conf |
