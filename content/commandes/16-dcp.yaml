@@ -1,7 +1,7 @@
 id: dcp
 titre: 'DCP : intégrité'
 groupe: Salle
-intro: 'Comparer un DCP à sa PKL : tailles, hash SHA-1 et fins de ligne. Fonctionne sur Doremi comme sur un Linux.'
+intro: 'Chaque fichier d’un DCP a une taille et une empreinte (hash SHA-1) inscrites dans la PKL. Comparer les deux prouve qu’une copie est intacte. Fonctionne sur Doremi comme sur un Linux.'
 
 commandes:
   - id: fichiers-du-dcp
@@ -10,7 +10,14 @@ commandes:
     niveau: info
     commande: |-
       ls -la {DCP_DIR}
-    but: Tailles réelles de chaque fichier.
+    but: 'Les fichiers du DCP avec leur taille exacte en octets.'
+    exemple: |
+      -rw-r--r-- 1 root root        702 Oct  2 10:11 ASSETMAP.xml
+      -rw-r--r-- 1 root root       9188 Oct  2 10:11 CPL_NomDuFilm.xml
+      -rw-r--r-- 1 root root       2214 Oct  2 10:11 PKL_NomDuFilm.xml
+      -rw-r--r-- 1 root root 1840265112 Oct  2 10:12 NomDuFilm_j2c_r01.mxf
+    lecture: 'La 5e colonne est la taille en octets : c’est elle qu’on compare à la balise <Size> de la PKL.'
+    mots: [dcp, fichiers, taille]
 
   - id: trouver-la-pkl
     titre: Trouver la PKL
@@ -19,6 +26,7 @@ commandes:
     commande: |-
       grep -l "PackingList" {DCP_DIR}/*.xml
     but: 'La PKL n’a pas toujours un nom en pkl_… : on la reconnaît à son contenu.'
+    mots: [pkl, packing list]
 
   - id: ce-qu-annonce-la-pkl
     titre: Ce qu’annonce la PKL
@@ -27,6 +35,13 @@ commandes:
     commande: |-
       grep -iE "<Id>|<Size>|<Hash>|OriginalFileName" $(grep -l "PackingList" {DCP_DIR}/*.xml | head -1)
     but: 'Pour chaque fichier : UUID, taille exacte en octets et hash SHA-1 en base64.'
+    exemple: |
+      <Id>urn:uuid:00000000-0000-4000-8000-000000000001</Id>
+      <Hash>Jm1Xk3aY0r1yW0m9V8qQ2c4b8nE=</Hash>
+      <Size>9188</Size>
+      <OriginalFileName>CPL_NomDuFilm.xml</OriginalFileName>
+    lecture: 'Chaque groupe de 4 lignes décrit un fichier. Compare **Size** avec `ls -la` et **Hash** avec la fiche « Taille et hash d’un fichier ».'
+    mots: [pkl, hash, taille]
 
   - id: fins-de-ligne-windows-cr-dans-les-xml
     titre: Fins de ligne Windows (CR) dans les XML
@@ -34,8 +49,14 @@ commandes:
     niveau: info
     commande: |-
       for f in {DCP_DIR}/*.xml; do echo "$(tr -cd '\r' < "$f" | wc -c) CR  $f"; done
-    but: Un XML de DCP n’a normalement aucun caractère CR.
-    attendu: 0 partout. Un nombre > 0 = fichier converti par un FTP en mode ASCII
+    but: 'Compte les caractères « retour chariot » (CR) de chaque XML. Un XML de DCP n’en contient normalement aucun.'
+    detail: |
+      tr -cd '\r' → ne garde que les caractères CR
+      wc -c → les compte
+    attendu: '0 partout. Un nombre > 0 = fichier converti par un FTP en mode ASCII'
+    lecture: 'Le nombre de CR est exactement l’écart de taille avec la PKL : une preuve de la conversion.'
+    voir: [dcp-crlf]
+    mots: [crlf, cr, fin de ligne, ftp ascii]
 
   - id: taille-et-hash-d-un-fichier
     titre: Taille et hash d’un fichier
@@ -43,8 +64,13 @@ commandes:
     niveau: info
     commande: |-
       F={DCP_DIR}/NOM_DU_FICHIER.xml ; wc -c < "$F" ; openssl sha1 -binary "$F" | openssl base64
-    but: 'Remplacer NOM_DU_FICHIER. Même format que la PKL : à comparer aux balises Size et Hash.'
-    attention: 'Sur Doremi, base64 n’existe pas : openssl base64 le remplace.'
+    but: 'Calcule la taille et le hash d’un fichier dans le même format que la PKL. Remplace NOM_DU_FICHIER.'
+    detail: |
+      wc -c < "$F" → taille en octets
+      openssl sha1 -binary → empreinte SHA-1 brute
+      | openssl base64 → encodée en base64, comme dans la PKL
+    attention: 'Sur Doremi, base64 n’existe pas : openssl base64 le remplace. Sur un MXF de plusieurs Go, le calcul prend plusieurs minutes.'
+    mots: [hash, sha1, taille, vérifier]
 
   - id: copie-corrigee-sans-cr
     titre: Copie corrigée sans CR
@@ -52,5 +78,7 @@ commandes:
     niveau: action
     commande: |-
       F={DCP_DIR}/NOM_DU_FICHIER.xml ; tr -d '\r' < "$F" > /tmp/$(basename "$F") ; wc -c < /tmp/$(basename "$F") ; openssl sha1 -binary /tmp/$(basename "$F") | openssl base64
-    but: Écrit une copie nettoyée dans /tmp, sans toucher à l’original, puis affiche sa taille et son hash.
-    attention: La copie n’est utilisable que si taille ET hash sont identiques à la PKL.
+    but: 'Écrit dans /tmp une copie sans CR, sans toucher à l’original, puis affiche sa taille et son hash.'
+    attendu: 'Taille ET hash identiques à la PKL'
+    attention: 'La copie n’est utilisable que si taille ET hash sont identiques à la PKL.'
+    mots: [crlf, corriger, copie]

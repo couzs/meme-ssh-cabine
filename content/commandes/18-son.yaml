@@ -1,7 +1,7 @@
 id: son
 titre: Son (Dolby)
 groupe: Salle
-intro: 'Processeur son piloté par le réseau (CP650 : port 61412).'
+intro: 'Le serveur pilote le processeur son par le réseau (Dolby CP650 : port 61412). Le son peut fonctionner en façade alors que les macros échouent : le problème est alors réseau.'
 
 commandes:
   - id: processeur-joignable
@@ -9,8 +9,11 @@ commandes:
     machine: lin
     niveau: info
     commande: |-
-      ping -c 3 {IP} ; arp -n | grep "{IP} "
-    attendu: « incomplete » = rien ne répond à cette IP
+      ping -c 3 {IP} ; ip neigh show {IP}
+    but: 'Le processeur répond-il, et avec quelle MAC ?'
+    attendu: 'Réponses au ping et une MAC 00:d0:46:…'
+    lecture: '« FAILED » ou « INCOMPLETE » = rien ne répond à cette IP.'
+    mots: [dolby, cp650, ping]
 
   - id: port-de-controle-cp650
     titre: Port de contrôle CP650
@@ -18,16 +21,19 @@ commandes:
     niveau: info
     commande: |-
       (echo > /dev/tcp/{IP}/61412) 2>/dev/null && echo "61412 OK" || echo "61412 KO"
-    but: 'Sans nc ni timeout : passe par bash.'
-    attention: Peut mettre une vingtaine de secondes à répondre KO.
+    but: 'Le port de pilotage du CP650 accepte-t-il les connexions ? Sans nc ni timeout : passe par bash.'
+    lecture: 'OK = joignable : si les macros échouent, le problème est dans les macros du serveur. Peut mettre une vingtaine de secondes à répondre KO.'
+    mots: [61412, port, cp650]
 
   - id: dolby-visibles-sur-le-reseau
     titre: Dolby visibles sur le réseau
     machine: lin
     niveau: info
     commande: |-
-      arp -n | grep -i "00:d0:46"
-    but: Les MAC Dolby commencent par 00:d0:46. D’autres Dolby visibles = réseau OK, problème local à une salle.
+      ip neigh show | grep -i "00:d0:46" | sort -V
+    but: 'Les processeurs Dolby vus récemment.'
+    lecture: 'D’autres Dolby visibles = le réseau fonctionne, le problème est local à une salle (câble, processeur).'
+    mots: [dolby, mac, réseau]
 
   - id: processeur-declare-sur-le-serveur
     titre: Processeur déclaré sur le serveur
@@ -35,4 +41,5 @@ commandes:
     niveau: info
     commande: |-
       grep -n -i -B2 -A8 "cp650\|dolby" /doremi/etc/devices.xml
-    but: IP et port attendus par le serveur Doremi.
+    but: 'IP et port attendus par le serveur Doremi.'
+    mots: [dolby, devices, configuration]

@@ -1,16 +1,18 @@
 id: jnior
 titre: JNIOR (telnet)
 groupe: Salle
-intro: 'Boîtier d’automation : relais, lumière 0-10 V, macros. Taper une seule commande à la fois.'
+intro: 'Boîtier d’automation : relais, lumière 0-10 V, macros. On s’y connecte en telnet depuis le TMS. Taper une seule commande à la fois : les blocs collés se mélangent.'
 
 commandes:
   - id: se-connecter-au-jnior
     titre: Se connecter au JNIOR
-    machine: jnr
+    machine: tms
     niveau: info
     commande: |-
       telnet {JNR}
-    but: 'Depuis le TMS. Identifiant admin. Le texte du démarrage peut se mélanger à la saisie : retaper si « Login incorrect ».'
+    but: 'Ouvre la console du JNIOR depuis le TMS. Identifiant admin.'
+    lecture: 'Le texte du démarrage peut se mélanger à la saisie : retaper si « Login incorrect ». `exit` pour quitter.'
+    mots: [telnet, jnior, connexion]
 
   - id: commandes-disponibles
     titre: Commandes disponibles
@@ -18,7 +20,9 @@ commandes:
     niveau: info
     commande: |-
       help
-    but: Les JNIOR en OS 4.x ont moins de commandes que les récents.
+    but: 'Liste des commandes du JNIOR.'
+    lecture: 'Les JNIOR en OS 4.x ont moins de commandes que les récents.'
+    mots: [aide, help]
 
   - id: applications-qui-tournent
     titre: Applications qui tournent
@@ -26,16 +30,20 @@ commandes:
     niveau: info
     commande: |-
       ps
-    attendu: analogpresets dans la liste = l’application lumière tourne
+    but: 'Les applications lancées sur le JNIOR.'
+    attendu: 'analogpresets dans la liste = l’application lumière tourne'
+    voir: [jnior-install]
+    mots: [ps, applications, analogpresets]
 
-  - id: qui-est-connecte-2
+  - id: qui-est-connecte-jnior
     titre: Qui est connecté
     machine: jnr
     niveau: info
     commande: |-
       netstat
-    but: Serveur de la salle sur le port 9200 (protocole JNIOR), Modbus sur 502, telnet sur 23.
-    attendu: IP du serveur en ESTABLISHED sur 9200
+    but: 'Connexions en cours : serveur de la salle sur le port 9200 (protocole JNIOR), Modbus sur 502, telnet sur 23.'
+    attendu: 'IP du serveur en ESTABLISHED sur 9200'
+    mots: [netstat, connexions, 9200]
 
   - id: ip-et-reseau
     titre: IP et réseau
@@ -43,7 +51,8 @@ commandes:
     niveau: info
     commande: |-
       ipconfig
-    but: IP, masque, passerelle, MAC (00:60:35:…).
+    but: 'IP, masque, passerelle, MAC (00:60:35:…).'
+    mots: [ip, réseau, jnior]
 
   - id: dernier-demarrage
     titre: Dernier démarrage
@@ -51,7 +60,8 @@ commandes:
     niveau: info
     commande: |-
       cat /jniorboot.log
-    but: Heure du boot, firmware, modules détectés (analogique 10 V, panneau), applications lancées.
+    but: 'Heure du boot, firmware, modules détectés (analogique 10 V, panneau), applications lancées.'
+    mots: [boot, démarrage, firmware]
 
   - id: journal-systeme
     titre: Journal système
@@ -59,7 +69,8 @@ commandes:
     niveau: info
     commande: |-
       cat /jniorsys.log
-    but: Connexions, modifications du registre, redémarrages. L’ancien journal est dans jniorsys.log.bak.
+    but: 'Connexions, modifications du registre, redémarrages. L’ancien journal est dans jniorsys.log.bak.'
+    mots: [journal, jnior]
 
   - id: commandes-recues-du-serveur
     titre: Commandes reçues du serveur
@@ -67,8 +78,9 @@ commandes:
     niveau: info
     commande: |-
       cat /jrprotocol.log
-    but: Une ligne par paquet reçu sur le port 9200.
-    attendu: 26 seuls = interrogation d’état, aucune commande. 10 = commande de relais. 31 suivi d’IOException = macro JNIOR introuvable
+    but: 'Une ligne par paquet reçu sur le port 9200.'
+    attendu: '26 seuls = interrogation d’état, aucune commande. 10 = commande de relais. 31 suivi d’IOException = macro JNIOR introuvable'
+    mots: [protocole, 9200, paquets, macros]
 
   - id: journal-de-l-application-lumiere
     titre: Journal de l’application lumière
@@ -76,7 +88,8 @@ commandes:
     niveau: info
     commande: |-
       cat /analogpresets.log
-    but: Bannière de démarrage puis « IO Monitor Scan Rate ». Les changements de niveau ne sont pas journalisés.
+    but: 'Bannière de démarrage puis « IO Monitor Scan Rate ». Les changements de niveau ne sont pas journalisés.'
+    mots: [lumière, analogpresets]
 
   - id: fichiers-installes
     titre: Fichiers installés
@@ -84,7 +97,8 @@ commandes:
     niveau: info
     commande: |-
       ls /flash
-    but: analogpresets.jnior, task.jnior… = applications disponibles.
+    but: 'analogpresets.jnior, task.jnior… = applications disponibles.'
+    mots: [flash, fichiers]
 
   - id: configuration-complete
     titre: Configuration complète
@@ -92,8 +106,10 @@ commandes:
     niveau: info
     commande: |-
       cat /flash/jnior.ini
-    but: 'Copie lisible du registre. AppData/AnalogPresets/Level_N : RelayOutputAction = relais déclencheur, Setting = niveau en %. Run = démarrage automatique.'
+    but: 'Copie lisible du registre.'
+    lecture: 'Sous AppData/AnalogPresets/Level_N : **RelayOutputAction** = relais déclencheur, **Setting** = niveau en %. Sous Run : applications lancées au démarrage.'
     attention: 'Fichier réécrit par le JNIOR avec un délai : après une modification, lire le registre directement.'
+    mots: [configuration, registre, ini]
 
   - id: lire-une-cle-du-registre
     titre: Lire une clé du registre
@@ -101,7 +117,8 @@ commandes:
     niveau: info
     commande: |-
       registry Run/analogpresets
-    but: Remplacer par la clé voulue, ex. AppData/AnalogPresets/Level_1/RelayOutputAction.
+    but: 'Remplacer par la clé voulue, ex. AppData/AnalogPresets/Level_1/RelayOutputAction.'
+    mots: [registre, clé]
 
   - id: relais-et-entrees-en-direct
     titre: Relais et entrées en direct
@@ -109,8 +126,10 @@ commandes:
     niveau: info
     commande: |-
       jrmon
-    but: 'Se met à jour seul. Ne rien taper : n’importe quelle touche arrête l’affichage.'
-    attendu: 'Colonne 8-RLYn-1 : le chiffre de gauche est le relais 8, celui de droite le relais 1'
+    but: 'État des relais et entrées, mis à jour en continu.'
+    lecture: 'Colonne `8-RLYn-1` : le chiffre de gauche est le relais 8, celui de droite le relais 1. `01000000` = relais 7 actif.'
+    attention: 'Ne rien taper : n’importe quelle touche arrête l’affichage.'
+    mots: [jrmon, relais, direct]
 
   - id: ecrire-une-cle-du-registre
     titre: Écrire une clé du registre
@@ -119,7 +138,8 @@ commandes:
     commande: |-
       registry AppData/AnalogPresets/Level_1/RelayOutputAction = 7
     but: 'Syntaxe : registry clé = valeur.'
-    attention: Une valeur avec un espace fait échouer la commande (l’aide s’affiche).
+    attention: 'Une valeur avec un espace fait échouer la commande (l’aide s’affiche).'
+    mots: [registre, écrire]
 
   - id: copier-un-fichier-depuis-un-autre-jnior
     titre: Copier un fichier depuis un autre JNIOR
@@ -128,8 +148,9 @@ commandes:
     commande: |-
       ftp {JNR_SRC}
     but: 'Lancer depuis /flash (cd /flash avant). Identifiant admin, puis dans ftp> : bin → cd /flash → get NOM.jnior → quit.'
-    attendu: 150 BINARY connection open et la même taille que la source
-    attention: Sans bin, le transfert se fait en ASCII et peut abîmer le fichier.
+    attendu: '150 BINARY connection open et la même taille que la source'
+    attention: 'Sans bin, le transfert se fait en ASCII et peut abîmer le fichier.'
+    mots: [ftp, copier, jnior]
 
   - id: redemarrer-le-jnior
     titre: Redémarrer le JNIOR
@@ -137,5 +158,6 @@ commandes:
     niveau: danger
     commande: |-
       reboot
-    but: Environ 80 s. Les applications de la clé Run redémarrent seules.
+    but: 'Environ 80 s. Les applications de la clé Run redémarrent seules.'
     attention: 'Hors séance : la lumière automatisée est coupée pendant le redémarrage.'
+    mots: [reboot, redémarrer]
