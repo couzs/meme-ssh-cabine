@@ -1,7 +1,7 @@
 id: extra
 titre: 'LMS : extra_exchange'
 groupe: Stockage
-intro: 'Script de réception du TCS (cron toutes les 15 min) : process, verrou, journal, configuration.'
+intro: 'extra_exchange est le script de réception du TCS : toutes les 15 minutes (cron), il traite les inbox (Eclair, IDC…). Il pose un verrou pendant son passage ; un verrou resté après un plantage bloque tous les passages suivants.'
 
 commandes:
   - id: process-en-cours-et-duree
@@ -10,8 +10,14 @@ commandes:
     niveau: info
     commande: |-
       \ps -eo pid,etime,args | grep [e]xtra_exchange
-    but: Le  contourne l’alias ps du TCS.
-    attendu: Rien = aucun passage en cours
+    but: 'Un passage tourne-t-il, et depuis combien de temps ?'
+    detail: |
+      \ps → la barre oblique contourne l’alias « ps » défini sur le TCS
+      etime → temps écoulé depuis le lancement
+      grep [e]xtra_exchange → l’astuce [e] exclut la ligne du grep lui-même
+    attendu: 'Rien = aucun passage en cours'
+    lecture: 'Un etime de plusieurs heures = passage bloqué en boucle sur un DCP.'
+    mots: [extra_exchange, process, durée]
 
   - id: verrou
     titre: Verrou
@@ -19,17 +25,20 @@ commandes:
     niveau: info
     commande: |-
       ls -l /tmp/.extra_receive.lock 2>&1
-    but: Le script le pose au démarrage et le retire à la fin.
-    attendu: Verrou présent sans process = passage planté. Retrait automatique au bout de 320 min.
+    but: 'Le verrou posé par le script au démarrage et retiré à la fin.'
+    attendu: 'Verrou présent sans process = passage planté. Retrait automatique au bout de 320 min.'
+    lecture: '« No such file or directory » = pas de verrou, normal hors passage. Sinon, sa date = début du passage en cours ou planté.'
+    mots: [verrou, lock]
 
   - id: derniers-passages
     titre: Derniers passages
     machine: lms
     niveau: info
     commande: |-
-      grep -E "STARTING NEW|End IMPORT" /var/log/extra_exchange.log | tail -8
-    but: Toutes les 15 minutes.
-    attendu: « lock file exist. Exiting » en série = un passage bloque les suivants
+      grep -E "STARTING NEW|End IMPORT|Exiting" /var/log/extra_exchange.log | tail -8
+    but: 'Les derniers démarrages et fins de passage (toutes les 15 minutes).'
+    lecture: 'Un « STARTING NEW » suivi d’un « End IMPORT » = passage normal. « lock file exist. Exiting » en série = un passage planté bloque les suivants.'
+    mots: [passages, journal, exiting]
 
   - id: fin-du-journal
     titre: Fin du journal
@@ -37,7 +46,8 @@ commandes:
     niveau: info
     commande: |-
       tail -20 /var/log/extra_exchange.log
-    but: Ce que fait le script en ce moment.
+    but: 'Ce que fait le script en ce moment.'
+    mots: [journal, extra_exchange]
 
   - id: etapes-activees
     titre: Étapes activées
@@ -45,9 +55,10 @@ commandes:
     niveau: info
     commande: |-
       grep -E "^(IMPORT|EXPORT)_VIA_[A-Z]+=" /etc/ymagis/extra_exchange.conf
-    but: Seules les étapes à YES tournent.
-    attendu: IMPORT_VIA_ECLAIR=NO = inbox Eclair jamais traitée ni purgée
+    but: 'Seules les étapes à YES tournent.'
+    attendu: 'IMPORT_VIA_ECLAIR=NO = inbox Eclair jamais traitée ni purgée'
     attention: 'Fichier géré par Puppet : ne pas modifier, passer par le N3.'
+    mots: [configuration, étapes, eclair, idc]
 
   - id: configuration-sans-secrets
     titre: Configuration sans secrets
@@ -55,7 +66,9 @@ commandes:
     niveau: info
     commande: |-
       grep -vE "^\s*#|^\s*$" /etc/ymagis/extra_exchange.conf | grep -viE "pass|pwd|secret|key|token"
-    but: MAIL=NO = aucune alerte n’est envoyée.
+    but: 'La configuration complète, sans commentaires ni mots de passe.'
+    lecture: 'MAIL=NO = aucune alerte n’est envoyée quand un DCP échoue.'
+    mots: [configuration, extra_exchange]
 
   - id: activite-par-etape-archives-comprises
     titre: Activité par étape, archives comprises
@@ -63,7 +76,9 @@ commandes:
     niveau: info
     commande: |-
       for f in /var/log/extra_exchange.log*; do zcat -f "$f"; done | grep -oE "\[(IMPORT|EXPORT)_[A-Z_]+\]" | sort | uniq -c
-    but: Une étape absente de plusieurs mois de journaux n’est pas activée.
+    but: 'Combien de fois chaque étape a écrit dans les journaux, archives comprises.'
+    lecture: 'Une étape absente de plusieurs mois de journaux n’est pas activée.'
+    mots: [étapes, activité, archives]
 
   - id: derniere-trace-eclair-par-archive
     titre: Dernière trace Eclair par archive
@@ -71,7 +86,9 @@ commandes:
     niveau: info
     commande: |-
       for f in $(ls -tr /var/log/extra_exchange.log*); do zcat -f "$f" | grep -i eclair | grep -viE "checksum|size check" | tail -1; done | tail -5
-    but: Seulement des lignes [CLEANING] = le script ne fait que supprimer les dossiers vides.
+    but: 'La dernière action liée à Eclair dans chaque fichier de journal.'
+    lecture: 'Seulement des lignes [CLEANING] = le script ne fait que supprimer les dossiers vides.'
+    mots: [eclair, journal]
 
   - id: dcp-en-echec-en-boucle
     titre: DCP en échec en boucle
@@ -79,13 +96,20 @@ commandes:
     niveau: info
     commande: |-
       grep -E "FAILED|alert|unchanged" /var/log/extra_exchange.log | tail -20
-    but: Checksums FAILED, « Directory size unchanged » = DCP mort revérifié à chaque passage.
+    but: 'Les DCP que le script revérifie à chaque passage sans jamais réussir.'
+    lecture: 'Checksums FAILED, « Directory size unchanged » = DCP mort revérifié à chaque passage. Le même nom qui revient = à purger (avec accord client) ou à faire renvoyer.'
+    mots: [échec, boucle, checksum]
 
   - id: retirer-un-verrou-plante
     titre: Retirer un verrou planté
     machine: lms
     niveau: action
     commande: |-
-      \ps -eo pid,args | grep -q [e]xtra_exchange && echo "Passage en cours : ne rien toucher" || rm -vf /tmp/.extra_receive.lock
-    but: Ne supprime le verrou que si aucun passage ne tourne.
-    attendu: Le passage suivant (:00 :15 :30 :45) démarre sans « Exiting » et se termine
+      \ps -eo pid,args | grep -q [e]xtra_exchange && echo "Passage en cours : ne rien toucher" || sudo rm -vf /tmp/.extra_receive.lock
+    but: 'Ne supprime le verrou que si aucun passage ne tourne.'
+    detail: |
+      grep -q → cherche sans rien afficher, répond seulement oui ou non
+      && echo … → si un passage tourne : message et rien d’autre
+      || rm -vf … → sinon : supprime le verrou et l’affiche (-v)
+    attendu: 'Le passage suivant (:00 :15 :30 :45) démarre sans « Exiting » et se termine'
+    mots: [verrou, retirer, débloquer]

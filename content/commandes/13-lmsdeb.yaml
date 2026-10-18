@@ -1,7 +1,7 @@
 id: lmsdeb
 titre: 'LMS Debian : FTP'
 groupe: Stockage
-intro: 'LMS Debian (FRxxxxLMS0001) : les DCP sont directement dans /opt/lms-ymagis/lms, déposés en FTP par lmsuser (ProFTPD).'
+intro: 'LMS Debian (FRxxxxLMS0001) : les DCP sont directement dans /opt/lms-ymagis/lms, déposés en FTP par lmsuser (ProFTPD). Aucune purge automatique : le ménage est manuel, avec l’accord du client.'
 
 commandes:
   - id: tester-l-ecriture-en-ftp
@@ -10,9 +10,12 @@ commandes:
     niveau: info
     commande: |-
       ftp {LMS}
-    but: 'Taper lmsuser et le mot de passe à la main. Puis : cd lms → mkdir test_tech → rmdir test_tech → bye.'
-    attendu: 257 créé = écriture OK. 550 No space left on device = disque plein. 550 Permission denied dans lms/ = vrai problème de droits
+    but: 'Reproduit ce que fait un distributeur : se connecter et écrire dans le dossier de dépôt.'
+    lecture: 'Taper `lmsuser` et le mot de passe **à la main**, puis : `cd lms` → `mkdir test_tech` → `rmdir test_tech` → `bye`.'
+    attendu: '257 créé = écriture OK. 550 No space left on device = disque plein. 550 Permission denied dans lms/ = vrai problème de droits'
     attention: 'Toujours tester DANS lms/ : à la racine, mkdir échoue toujours (dossier de root), même quand tout va bien.'
+    voir: [lms-ftp-plein]
+    mots: [ftp, écriture, test, permission denied]
 
   - id: remplissage-du-volume-des-dcp
     titre: Remplissage du volume des DCP
@@ -20,8 +23,10 @@ commandes:
     niveau: info
     commande: |-
       df -h /opt/lms-ymagis ; df -i /opt/lms-ymagis
-    but: Sur un LMS Debian, /opt/lms-ymagis est le point de montage du disque de contenu.
-    attendu: Use% 100 % ou quelques Ko libres = plus aucun dépôt possible
+    but: 'Espace et nombre de fichiers disponibles sur le disque de contenu.'
+    attendu: 'Use% et IUse% sous 90 %'
+    lecture: 'Use% 100 % ou quelques Ko libres = plus aucun dépôt possible.'
+    mots: [espace, plein, debian]
 
   - id: les-40-plus-gros-dcp
     titre: Les 40 plus gros DCP
@@ -29,7 +34,10 @@ commandes:
     niveau: info
     commande: |-
       du -sh /opt/lms-ymagis/lms/* 2>/dev/null | sort -rh | head -40
-    but: Base de la liste de purge à proposer au client.
+    but: 'Base de la liste de purge à proposer au client.'
+    detail: |
+      sort -rh → du plus gros au plus petit (r = reverse)
+    mots: [dcp, gros, purge]
 
   - id: dcp-par-date-d-arrivee
     titre: DCP par date d’arrivée
@@ -38,6 +46,8 @@ commandes:
     commande: |-
       ls -lt /opt/lms-ymagis/lms | head -30
     but: 'Le plus récent en premier : la date du dernier dépôt réussi donne le début de la panne.'
+    lecture: 'Le dernier DCP arrivé avant la panne est souvent tronqué (livraison coupée par le disque plein).'
+    mots: [dcp, date, dernier dépôt]
 
   - id: dossiers-vides-ou-incomplets
     titre: Dossiers vides ou incomplets
@@ -47,6 +57,7 @@ commandes:
       cd /opt/lms-ymagis/lms && for d in */; do n=$(du -sm "$d" | cut -f1); [ "$n" -lt 100 ] && echo "$n Mo  $d"; done
     but: 'Dossiers de moins de 100 Mo : DCP tronqué, livraison interrompue ou dossier vide resté après un retrait.'
     attention: 'Une bande-annonce peut peser moins de 100 Mo : regarder le nom avant de conclure.'
+    mots: [vide, tronqué, incomplet]
 
   - id: contenu-d-un-dcp
     titre: Contenu d’un DCP
@@ -54,7 +65,9 @@ commandes:
     niveau: info
     commande: |-
       ls -la /opt/lms-ymagis/lms/*{FILM}*/
-    but: Un DCP complet contient ASSETMAP, PKL, CPL et les MXF. Un MXF de quelques Mo sans PKL = transfert coupé.
+    but: 'Les fichiers d’un DCP et leur taille.'
+    lecture: 'Un DCP complet contient ASSETMAP, une PKL, une ou plusieurs CPL et les MXF (gros fichiers). Un MXF de quelques Mo sans PKL = transfert coupé.'
+    mots: [dcp, contenu, mxf]
 
   - id: transferts-temporaires-caches
     titre: Transferts temporaires cachés
@@ -62,7 +75,8 @@ commandes:
     niveau: info
     commande: |-
       ls -la /opt/lms-ymagis/lms/.tmp ; du -sh /opt/lms-ymagis/lms/.tmp
-    but: Morceaux de transferts interrompus qui peuvent occuper de la place.
+    but: 'Morceaux de transferts interrompus qui peuvent occuper beaucoup de place.'
+    mots: [tmp, transferts, cachés]
 
   - id: erreurs-ftp
     titre: Erreurs FTP
@@ -70,7 +84,9 @@ commandes:
     niveau: info
     commande: |-
       grep -iE "denied|No space|Read-only|refused" /var/log/proftpd/proftpd.log | tail -20
-    but: Le message exact que reçoit le distributeur.
+    but: 'Le message exact que reçoit le distributeur.'
+    lecture: '« No space left on device » = disque plein, même si le distributeur affiche « permission denied ».'
+    mots: [ftp, erreurs, proftpd]
 
   - id: qui-se-connecte-en-ftp
     titre: Qui se connecte en FTP
@@ -78,8 +94,9 @@ commandes:
     niveau: info
     commande: |-
       tail -30 /var/log/proftpd/proftpd.log
-    but: IP du distributeur (NAS Hyphen, TMS…) et résultat de chaque session.
+    but: 'IP du distributeur (NAS Hyphen, TMS…) et résultat de chaque session.'
     attention: 'Un mot de passe tapé par erreur dans le champ identifiant apparaît en clair ici : le faire changer.'
+    mots: [ftp, connexions, distributeur, hyphen]
 
   - id: transferts-termines
     titre: Transferts terminés
@@ -87,15 +104,18 @@ commandes:
     niveau: info
     commande: |-
       tail -20 /var/log/proftpd/xferlog
-    but: Une ligne par fichier reçu ou envoyé.
+    but: 'Une ligne par fichier reçu ou envoyé.'
+    lecture: 'Dans chaque ligne : date, durée, IP, taille en octets, chemin, puis `i` (reçu) ou `o` (envoyé) et `c` (complet) ou `i` (incomplet) en fin de ligne.'
+    mots: [xferlog, transferts]
 
   - id: un-film-dans-les-logs-ftp
     titre: Un film dans les logs FTP
     machine: lms
     niveau: info
     commande: |-
-      grep -i "{FILM}" /var/log/proftpd/*.log | tail -10
-    but: Le film a-t-il déjà été tenté ?
+      grep -i "{FILM}" /var/log/proftpd/*.log /var/log/proftpd/xferlog | tail -10
+    but: 'Le film a-t-il déjà été tenté ?'
+    mots: [film, ftp, logs]
 
   - id: une-purge-automatique-existe
     titre: Une purge automatique existe ?
@@ -103,25 +123,36 @@ commandes:
     niveau: info
     commande: |-
       for u in $(cut -d: -f1 /etc/passwd); do crontab -l -u $u 2>/dev/null | grep -v '^#' | grep . | sed "s/^/[$u] /"; done ; ls /etc/cron.d ; systemctl list-timers --no-pager
-    but: Crontabs de tous les utilisateurs, tâches cron et timers systemd.
+    but: 'Crontabs de tous les utilisateurs, tâches cron et timers systemd.'
     attendu: 'Seulement des tâches Debian (logrotate, apt, man-db…) = aucune purge : ménage manuel'
+    mots: [cron, purge, automatique]
 
   - id: preparer-une-liste-de-purge-ne-supprime-rien
     titre: Préparer une liste de purge (ne supprime rien)
     machine: lms
     niveau: info
     commande: |-
-      cd /opt/lms-ymagis/lms && LISTE=$(ls -d *{FILM}*) ; echo "$LISTE" ; echo "$LISTE" | wc -l ; du -sch $LISTE | tail -1
-    but: Liste, nombre de dossiers et taille totale pour un motif validé par le client.
+      cd /opt/lms-ymagis/lms && LISTE=$(ls -d *{FILM}*) ; echo "$LISTE" ; echo "$LISTE" | grep -c . ; du -sch $LISTE | tail -1
+    but: 'Liste, nombre de dossiers et taille totale pour un motif validé par le client. Le résultat est gardé dans la variable LISTE pour l’étape suivante.'
+    detail: |
+      LISTE=$(ls -d *FILM*) → mémorise les dossiers correspondants
+      grep -c . → compte les lignes non vides
+      du -sch → taille de chacun puis total (c)
+    lecture: 'Vérifie que chaque ligne est bien un dossier validé par le client, et qu’aucune bande-annonce (_TLR) ni publicité (_ADV) ne s’y trouve.'
+    mots: [purge, liste, préparer]
 
   - id: supprimer-la-liste-meme-session
     titre: Supprimer la liste (même session)
     machine: lms
     niveau: danger
     commande: |-
-      cd /opt/lms-ymagis/lms && rm -rf -- $LISTE ; df -h /opt/lms-ymagis
-    but: Supprime exactement la liste affichée juste avant.
-    attention: Uniquement après accord écrit du client et dans la même session que la préparation. Irréversible.
+      cd /opt/lms-ymagis/lms && [ -n "$LISTE" ] && rm -rf -- $LISTE ; df -h /opt/lms-ymagis
+    but: 'Supprime exactement la liste affichée juste avant, puis affiche l’espace libre.'
+    detail: |
+      [ -n "$LISTE" ] && → ne fait rien si la liste est vide (session différente, étape précédente oubliée)
+      rm -rf -- → supprime ; le -- protège contre un nom qui commencerait par un tiret
+    attention: 'Uniquement après accord écrit du client et dans la même session que la préparation. Irréversible.'
+    mots: [purge, supprimer]
 
   - id: taille-des-dcp-par-ftp-sans-ssh
     titre: Taille des DCP par FTP (sans SSH)
@@ -147,4 +178,9 @@ commandes:
       for s, d, n in res: print("%8.1f Go  %s  %s" % (s/1e9, d, n))
       print("TOTAL : %.2f To sur %d DCP" % (sum(r[0] for r in res)/1e12, len(res)))
       EOF
-    but: Quand on n’a pas l’accès SSH au LMS. Le mot de passe est demandé, jamais affiché.
+    but: 'Quand on n’a pas l’accès SSH au LMS : calcule la taille de chaque DCP par FTP, du plus gros au plus petit, avec sa date. Le mot de passe est demandé, jamais affiché.'
+    exemple: |
+       312.4 Go  20250314  NomDuFilm_FTR-1_F_FR-XX_FR_51_4K_…
+        98.0 Go  20261002  AutreFilm_FTR_F_FR-XX_FR_51_2K_…
+      TOTAL : 17.84 To sur 214 DCP
+    mots: [ftp, taille, python, sans ssh]

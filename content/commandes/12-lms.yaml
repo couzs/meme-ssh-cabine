@@ -1,7 +1,7 @@
 id: lms
 titre: 'LMS / TCS : stockage'
 groupe: Stockage
-intro: 'TCS Ubuntu : volume /opt/lms-ymagis avec data, view (inbox Eclair et IDC) et corbeille du bureau.'
+intro: 'Sur le TCS (Ubuntu), le volume /opt/lms-ymagis contient la bibliothèque (data), les inbox Eclair et IDC (view) et la corbeille du bureau (.Trash-…). Les dossiers de contenu ne se lisent qu’avec sudo.'
 
 commandes:
   - id: remplissage-du-volume-de-contenu
@@ -10,8 +10,14 @@ commandes:
     niveau: info
     commande: |-
       df -h /opt/lms-ymagis
-    but: Volume de 18 To typique.
-    attendu: Use% 100 % ou quelques Ko libres = dépôts KDM et ingests en échec
+    but: 'Taille, occupation et espace libre du volume des films (souvent 18 To).'
+    exemple: |
+      Filesystem      Size  Used Avail Use% Mounted on
+      /dev/sdb1        18T   18T   20G 100% /opt/lms-ymagis
+    attendu: 'Use% sous 90 %'
+    lecture: '100 % ou quelques Go libres = dépôts KDM et ingests en échec. Note l’espace libre de départ dans le ticket.'
+    voir: [lms-plein]
+    mots: [lms, plein, espace, tcs]
 
   - id: repartition-corbeilles-comprises
     titre: Répartition, corbeilles comprises
@@ -19,8 +25,18 @@ commandes:
     niveau: info
     commande: |-
       sudo du -xsh /opt/lms-ymagis/* /opt/lms-ymagis/.[!.]* 2>/dev/null | sort -h
-    but: data = bibliothèque, view = inbox Eclair / IDC, .Trash-100x = corbeille du bureau.
-    attention: Sans sudo, sysadm voit les dossiers de contenu à 0.
+    but: 'Taille de chaque grand dossier du volume, y compris les dossiers cachés (corbeilles).'
+    detail: |
+      du -xsh → taille totale lisible, sans sortir du volume (-x)
+      /opt/lms-ymagis/* → les dossiers visibles
+      /opt/lms-ymagis/.[!.]* → les dossiers cachés (commencent par un point), sans « . » ni « .. »
+    exemple: |
+      1.1T	/opt/lms-ymagis/.Trash-1002
+      4.6T	/opt/lms-ymagis/view
+      12T	/opt/lms-ymagis/data
+    lecture: '**data** = bibliothèque, **view** = inbox Eclair / IDC, **.Trash-100x** = corbeille du bureau (contenus « supprimés » par l’exploitant mais toujours là).'
+    attention: 'Sans sudo, sysadm voit les dossiers de contenu à 0.'
+    mots: [répartition, corbeille, du]
 
   - id: bibliotheque-par-dossier
     titre: Bibliothèque par dossier
@@ -28,7 +44,8 @@ commandes:
     niveau: info
     commande: |-
       sudo du -xh --max-depth=2 /opt/lms-ymagis/data 2>/dev/null | sort -h | tail -25
-    but: Les 25 plus gros dossiers de data/dcp.
+    but: 'Les 25 plus gros dossiers de la bibliothèque (data/dcp).'
+    mots: [bibliothèque, data, dcp]
 
   - id: vue-complete-inbox
     titre: Vue complète (inbox)
@@ -36,7 +53,8 @@ commandes:
     niveau: info
     commande: |-
       sudo du -xh --max-depth=4 /opt/lms-ymagis/view 2>/dev/null | sort -h | tail -30
-    but: Fait ressortir les gros DCP en inbox Eclair et IDC.
+    but: 'Fait ressortir les gros DCP en inbox Eclair et IDC.'
+    mots: [inbox, eclair, idc]
 
   - id: inbox-eclair-par-taille
     titre: Inbox Eclair par taille
@@ -44,7 +62,11 @@ commandes:
     niveau: info
     commande: |-
       sudo sh -c 'du -sh /opt/lms-ymagis/view/eclair/inbox/* | sort -h'
-    but: 'Le * doit être développé par root : d’où le sh -c.'
+    but: 'Chaque DCP de l’inbox Eclair avec sa taille, le plus gros en dernier.'
+    detail: |
+      sudo sh -c '…' → toute la commande est exécutée par root, y compris le développement de l’étoile
+    lecture: 'Sans le `sh -c`, l’étoile serait développée par ton utilisateur, qui n’a pas le droit de lister le dossier : la commande échouerait.'
+    mots: [eclair, inbox, taille]
 
   - id: inbox-eclair-par-date
     titre: Inbox Eclair par date
@@ -52,7 +74,8 @@ commandes:
     niveau: info
     commande: |-
       sudo ls -lt /opt/lms-ymagis/view/eclair/inbox | head -40
-    but: Dernières réceptions en premier.
+    but: 'Dernières réceptions en premier.'
+    mots: [eclair, inbox, date]
 
   - id: inbox-idc-par-taille
     titre: Inbox IDC par taille
@@ -60,7 +83,9 @@ commandes:
     niveau: info
     commande: |-
       sudo sh -c 'du -sh /opt/lms-ymagis/view/idc/inbox/* | sort -h'
-    but: Des DCP de plusieurs années = bloqués en boucle par extra_exchange.
+    but: 'Chaque DCP de l’inbox IDC avec sa taille.'
+    lecture: 'Des DCP de plusieurs années = bloqués en boucle par extra_exchange (voir « DCP en échec en boucle »).'
+    mots: [idc, inbox, taille]
 
   - id: chercher-un-film-partout
     titre: Chercher un film partout
@@ -68,7 +93,12 @@ commandes:
     niveau: info
     commande: |-
       sudo find /opt/lms-ymagis/data/dcp /opt/lms-ymagis/view/eclair/inbox /opt/lms-ymagis/view/idc/inbox -maxdepth 3 -iname "*{FILM}*" -type d
-    but: Bibliothèque et inbox. Utile avant une purge.
+    but: 'Tous les dossiers du film, en bibliothèque et en inbox. Utile avant une purge pour ne rien oublier.'
+    detail: |
+      -maxdepth 3 → ne descend pas plus de 3 niveaux (rapide)
+      -iname "*FILM*" → nom contenant le motif, majuscules ou non
+      -type d → seulement des dossiers
+    mots: [film, chercher, find]
 
   - id: corbeille-plus-gros-elements
     titre: 'Corbeille : plus gros éléments'
@@ -76,7 +106,8 @@ commandes:
     niveau: info
     commande: |-
       sudo sh -c 'du -sh /opt/lms-ymagis/.Trash-*/files/* | sort -h | tail -20'
-    but: Ce que l’exploitant a supprimé depuis le bureau sans vider la corbeille.
+    but: 'Ce que l’exploitant a supprimé depuis le bureau sans vider la corbeille.'
+    mots: [corbeille, trash]
 
   - id: corbeille-dates-de-suppression
     titre: 'Corbeille : dates de suppression'
@@ -84,16 +115,22 @@ commandes:
     niveau: info
     commande: |-
       sudo sh -c 'grep -h DeletionDate /opt/lms-ymagis/.Trash-*/info/*.trashinfo | sort | sed -n "1p;\$p"'
-    but: Plus ancienne et plus récente suppression.
+    but: 'Date de la plus ancienne et de la plus récente suppression.'
+    exemple: |
+      DeletionDate=2024-02-11T10:22:04
+      DeletionDate=2026-10-02T16:40:51
+    mots: [corbeille, date]
 
   - id: vider-la-corbeille-du-bureau
     titre: Vider la corbeille du bureau
     machine: lms
     niveau: danger
     commande: |-
-      sudo sh -c 'rm -rf /opt/lms-ymagis/.Trash-1002/files/* /opt/lms-ymagis/.Trash-1002/info/*' ; df -h /opt/lms-ymagis
-    but: Libère tout de suite l’espace des contenus déjà supprimés par l’exploitant.
-    attention: Uniquement après accord écrit du client. Irréversible.
+      sudo sh -c 'rm -rf /opt/lms-ymagis/.Trash-*/files/* /opt/lms-ymagis/.Trash-*/info/*' ; df -h /opt/lms-ymagis
+    but: 'Libère tout de suite l’espace des contenus déjà supprimés par l’exploitant, puis affiche l’espace libre.'
+    attendu: 'Espace libre en hausse de la taille de la corbeille'
+    attention: 'Uniquement après accord écrit du client. Irréversible.'
+    mots: [corbeille, vider, purge]
 
   - id: fichiers-supprimes-encore-ouverts
     titre: Fichiers supprimés encore ouverts
@@ -101,7 +138,9 @@ commandes:
     niveau: info
     commande: |-
       sudo lsof +L1 2>/dev/null | grep lms-ymagis | head -20
-    but: Explique un écart entre df et du.
+    but: 'Un fichier supprimé mais encore ouvert par un programme occupe toujours la place. Explique un écart entre df et du.'
+    lecture: 'La colonne **COMMAND** dit quel programme tient le fichier. Il faut l’arrêter (ou le laisser finir) pour libérer la place.'
+    mots: [lsof, supprimé, ouvert, écart df du]
 
   - id: xml-d-inbox-mal-formes
     titre: XML d’inbox mal formés
@@ -109,5 +148,6 @@ commandes:
     niveau: info
     commande: |-
       sudo find /opt/lms-ymagis/view/eclair/inbox /opt/lms-ymagis/view/idc/inbox -maxdepth 2 -type f \( -iname "*.xml" -o -iname ASSETMAP -o -iname VOLINDEX \) -exec sh -c 'c=$(head -c1 "$1"); [ "$c" != "<" ] && echo "$1"' _ {} \;
-    but: Un XML qui ne commence pas par « < » peut bloquer le script de réception.
-    attendu: Aucune ligne = rien de suspect
+    but: 'Un XML qui ne commence pas par « < » (fichier vide, binaire, abîmé) peut bloquer le script de réception.'
+    attendu: 'Aucune ligne = rien de suspect'
+    mots: [xml, abîmé, inbox]

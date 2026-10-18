@@ -1,7 +1,7 @@
 id: orc
 titre: 'ORC : captures'
 groupe: Réseau
-intro: tcpdump, ARP, MAC apprises par les bridges. L’ORC est le seul à avoir tcpdump.
+intro: 'L’ORC est le routeur du site et la seule machine avec tcpdump : c’est d’ici qu’on « écoute » le réseau des salles. Chaque capture est limitée dans le temps (timeout) pour ne jamais tourner indéfiniment.'
 
 commandes:
   - id: role-des-bridges
@@ -10,7 +10,22 @@ commandes:
     niveau: info
     commande: |-
       head -8 /etc/ferm/netconfig.conf ; brctl show 2>/dev/null || bridge link
-    but: iface_mgt / iface_sto = réseaux réels, iface_vmgt / iface_vsto = côté TMS. Puis les ports physiques de chaque bridge.
+    but: 'Quel bridge (br0…br4) porte quel réseau, et quels ports physiques sont dans chaque bridge. À regarder en arrivant sur un ORC.'
+    detail: |
+      head -8 netconfig.conf → les rôles : iface_mgt, iface_sto (réseaux réels), iface_vmgt, iface_vsto (côté TMS)
+      brctl show → chaque bridge et ses ports physiques (si brctl est installé)
+      || bridge link → sinon, la commande équivalente moderne
+    exemple: |
+      @def $iface_mgt = br2;
+      @def $iface_sto = br3;
+      @def $iface_vmgt = br0;
+      @def $iface_vsto = br1;
+      bridge name   bridge id           STP enabled   interfaces
+      br2           8000.0cc47a000001   no            eth1
+      br3           8000.0cc47a000002   no            bond0
+    lecture: '**iface_mgt** = réseau de gestion réel (projecteurs, serveurs, son) → variable IF. **iface_sto** = réseau d’ingest réel → variable IF_STO. Le port physique d’un bridge (eth1…) → variable PHY.'
+    voir: [archi]
+    mots: [bridge, br2, br3, rôle, netconfig]
 
   - id: trouver-le-bridge-d-un-reseau
     titre: Trouver le bridge d’un réseau
@@ -18,24 +33,42 @@ commandes:
     niveau: info
     commande: |-
       ip -o -4 addr show | awk -v n="{NET}." 'index($4,n)==1{print $2; exit}'
-    but: À reporter dans la variable IF.
+    but: 'Donne le nom du bridge qui porte le réseau NET. À reporter dans la variable IF.'
+    exemple: |
+      br2
+    mots: [bridge, interface, réseau]
 
   - id: etat-du-bond
     titre: État du bond
     machine: orc
     niveau: info
     commande: |-
-      cat /proc/net/bonding/bond0
-    but: 'Cartes du bond et lesquelles ont un lien (MII Status: up).'
+      grep -E "Bonding Mode|Slave Interface|MII Status|Speed" /proc/net/bonding/bond0
+    but: 'Le bond regroupe plusieurs cartes en une seule (réseau d’ingest). Montre chaque carte et si elle a un lien.'
+    exemple: |
+      Bonding Mode: IEEE 802.3ad Dynamic link aggregation
+      MII Status: up
+      Slave Interface: eth2
+      MII Status: up
+      Speed: 1000 Mbps
+      Slave Interface: eth3
+      MII Status: down
+      Speed: Unknown
+    lecture: 'Le premier **MII Status** est celui du bond ; ensuite un bloc par carte. Une carte en `down` = câble ou port de switch à vérifier (le bond continue sur l’autre, mais sans secours).'
+    mots: [bond, agrégation, lien, ingest]
 
   - id: lien-d-un-port-physique
     titre: Lien d’un port physique
     machine: orc
     niveau: info
     commande: |-
-      cat /sys/class/net/{PHY}/carrier /sys/class/net/{PHY}/speed
-    but: Fonctionne même sans ethtool.
-    attendu: 1 puis 1000 = câble branché, 1 Gb/s
+      echo "lien: $(cat /sys/class/net/{PHY}/carrier 2>/dev/null) vitesse: $(cat /sys/class/net/{PHY}/speed 2>/dev/null) Mb/s"
+    but: 'Le câble est-il branché, et à quelle vitesse ? Fonctionne même sans ethtool.'
+    exemple: |
+      lien: 1 vitesse: 1000 Mb/s
+    lecture: '**lien: 1** = câble branché et lien établi ; **0** = pas de lien. Vitesse 100 au lieu de 1000 = câble abîmé ou port de switch limité.'
+    attendu: 'lien: 1 vitesse: 1000 Mb/s'
+    mots: [lien, câble, port, vitesse, carrier]
 
   - id: capter-tous-les-barco
     titre: Capter tous les Barco
@@ -43,8 +76,19 @@ commandes:
     niveau: info
     commande: |-
       timeout 60 tcpdump -i {IF} -n -e 'ether[6:2] == 0x0004 and ether[8:1] == 0xa5'
-    but: Retrouve un projecteur parti sur une mauvaise IP.
+    but: 'Écoute pendant 60 secondes toutes les trames émises par un équipement Barco (MAC en 00:04:a5), quelle que soit son IP. Retrouve un projecteur parti sur une mauvaise IP.'
+    detail: |
+      timeout 60 → arrête la capture au bout de 60 s
+      tcpdump -i {IF} → écoute sur ce bridge
+      -n → n’essaie pas de traduire les IP en noms
+      -e → affiche les adresses MAC
+      ether[6:2] == 0x0004 and ether[8:1] == 0xa5 → MAC source commençant par 00:04:a5
+    exemple: |
+      14:41:02.118 00:04:a5:12:34:56 > ff:ff:ff:ff:ff:ff, ethertype ARP, length 60: Request who-has 192.168.100.1 tell 192.168.100.2, length 46
+    lecture: 'Dans « who-has X tell Y », **Y** est l’IP que le Barco croit avoir (→ variable BAD_IP) et **X** la passerelle qu’il cherche (→ BAD_GW).'
     attention: 'Pas de tcpdump sur le TMS : passer par l’ORC.'
+    voir: [barco-ip]
+    mots: [barco, capture, tcpdump, ip perdue]
 
   - id: qui-cherche-qui-arp
     titre: Qui cherche qui (ARP)
@@ -52,7 +96,9 @@ commandes:
     niveau: info
     commande: |-
       timeout 60 tcpdump -i {IF} -n -e arp
-    but: « who-has X tell Y » sans réponse = X n’existe pas sur ce réseau.
+    but: 'Les questions « qui a cette IP ? » qui circulent sur le réseau pendant 60 secondes.'
+    lecture: '« who-has X tell Y » sans « is-at » en réponse = **X** n’existe pas sur ce réseau. Une même IP qui reçoit des réponses de deux MAC différentes = **conflit d’IP**.'
+    mots: [arp, who-has, conflit ip]
 
   - id: arp-hors-bruit-du-reseau-de-gestion
     titre: ARP hors bruit du réseau de gestion
@@ -60,7 +106,8 @@ commandes:
     niveau: info
     commande: |-
       timeout 120 tcpdump -i {IF_STO} -n -e 'arp and not src net {NET}.0/24'
-    but: Fait ressortir une IP inattendue (port d’ingest mal configuré).
+    but: 'Sur le réseau d’ingest, n’affiche que l’ARP qui ne vient pas du réseau de gestion : fait ressortir une IP inattendue (port d’ingest mal configuré).'
+    mots: [arp, ingest, filtre]
 
   - id: qui-repond-a-une-ip-arp
     titre: Qui répond à une IP (ARP)
@@ -68,8 +115,10 @@ commandes:
     niveau: info
     commande: |-
       timeout 30 tcpdump -i {IF_STO} -n -e 'arp and host {ING}'
-    but: Pendant un ping depuis une autre session.
-    attendu: Seulement des « who-has » = personne ne porte cette IP
+    but: 'Pendant qu’un ping vers l’IP d’ingest tourne dans une autre session : quelqu’un répond-il ?'
+    lecture: '« is-at 00:04:a5:… » = un équipement porte l’IP. Seulement des « who-has » = personne ne porte cette IP.'
+    attendu: 'Une réponse « is-at » avec une MAC'
+    mots: [arp, ingest, réponse]
 
   - id: mac-apprises-par-les-bridges
     titre: MAC apprises par les bridges
@@ -77,8 +126,10 @@ commandes:
     niveau: info
     commande: |-
       bridge -s fdb show | grep -i "{MAC}"
-    but: Sur quel port la MAC a été vue.
+    but: 'Sur quel port physique la MAC a été vue, et depuis combien de temps elle n’a rien émis.'
+    lecture: '**dev eth1** = port physique où elle est branchée. **used X/Y** : Y = secondes depuis sa dernière trame. Un Y qui grandit = équipement silencieux ou débranché.'
     attendu: 'used X/Y : Y = secondes depuis sa dernière trame émise'
+    mots: [mac, bridge, fdb, port]
 
   - id: toutes-les-mac-barco-apprises
     titre: Toutes les MAC Barco apprises
@@ -86,7 +137,9 @@ commandes:
     niveau: info
     commande: |-
       bridge -s fdb show | grep -i "00:04:a5"
-    but: Une MAC Barco apprise sans IP dans ip neigh = port actif mais sans adresse.
+    but: 'Tous les Barco vus par les bridges, même ceux sans IP.'
+    lecture: 'Une MAC Barco apprise mais absente de `ip neigh` = port actif mais sans adresse IP (port ICMP non configuré).'
+    mots: [barco, mac, bridge]
 
   - id: trafic-d-une-mac-sur-le-port-physique
     titre: Trafic d’une MAC sur le port physique
@@ -94,8 +147,14 @@ commandes:
     niveau: info
     commande: |-
       timeout 120 tcpdump -i {PHY} -n -e -vv ether src {MAC} -c 20
-    but: 'Sur un bridge, on ne voit que le broadcast et le trafic vers l’ORC : pour une MAC précise, écouter le port physique.'
-    attention: L’interface « any » refuse les filtres ether.
+    but: 'Les 20 premières trames émises par une MAC précise, écoutées sur le port physique (sur un bridge, on ne voit que le broadcast et le trafic vers l’ORC).'
+    detail: |
+      -i {PHY} → port physique (eth1…) plutôt que le bridge
+      -vv → très détaillé
+      ether src {MAC} → seulement ce qu’émet cette MAC
+      -c 20 → s’arrête après 20 trames
+    attention: 'L’interface « any » refuse les filtres ether.'
+    mots: [mac, trafic, capture]
 
   - id: trafic-d-une-ip-hors-arp
     titre: Trafic d’une IP (hors ARP)
@@ -103,39 +162,48 @@ commandes:
     niveau: info
     commande: |-
       timeout 30 tcpdump -i {IF} -n host {IP} and not arp -c 20
-    but: Voir si une connexion s’établit vraiment.
+    but: 'Voir si une vraie connexion s’établit avec l’équipement.'
+    lecture: 'Des paquets dans les deux sens (`>` et `<`) = ça dialogue. Des « Flags [S] » répétés sans réponse = la connexion n’aboutit pas.'
+    mots: [trafic, ip, capture]
 
   - id: requetes-dhcp
     titre: Requêtes DHCP
     machine: orc
     niveau: info
     commande: |-
-      timeout 60 tcpdump -i {IF} -n port 67 or port 68
-    but: Équipement en DHCP qui ne trouve pas de serveur.
+      timeout 60 tcpdump -i {IF} -n -e port 67 or port 68
+    but: 'Un équipement réglé en DHCP (« Automatic ») demande une adresse : on le voit ici, avec sa MAC.'
+    lecture: '« DHCP-Request » / « Discover » répétés sans « Offer » = l’équipement attend une IP que personne ne lui donne : lui mettre une IP fixe.'
+    mots: [dhcp, automatic, ip]
 
   - id: capture-pour-wireshark
     titre: Capture pour Wireshark
     machine: orc
     niveau: info
     commande: |-
-      timeout 120 tcpdump -i {IF} -n -w /tmp/capture_$(date +%H%M).pcap host {IP}
-    but: Fichier .pcap à récupérer pour une analyse ou un ticket constructeur.
+      timeout 120 tcpdump -i {IF} -n -w /tmp/capture_$(date +%H%M).pcap host {IP} ; ls -lh /tmp/capture_*.pcap
+    but: 'Enregistre 2 minutes de trafic dans un fichier .pcap à ouvrir dans Wireshark ou à joindre à un ticket constructeur.'
+    attention: 'Penser à supprimer le fichier de /tmp une fois récupéré.'
+    mots: [pcap, wireshark, capture, ticket]
 
   - id: balayage-gestion-ingest
     titre: Balayage gestion + ingest
     machine: orc
     niveau: info
     commande: |-
-      ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & ping -c1 -W1 {NET_STO}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh | grep -v FAILED | sort
-    but: Les deux réseaux en environ 2 secondes, puis toutes les MAC vivantes.
+      ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & ping -c1 -W1 {NET_STO}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh show | grep -v FAILED | sort -V
+    but: 'Les deux réseaux en environ 2 secondes, puis toutes les IP vivantes avec leur MAC.'
+    mots: [scan, balayage, ingest, gestion]
 
   - id: toutes-les-ip-d-ingest-declarees
     titre: Toutes les IP d’ingest déclarées
     machine: orc
     niveau: info
     commande: |-
-      for ip in $(grep -Eo "= {NET_STO}\.[0-9]+" /etc/ymagis/network.cfg | cut -d' ' -f2 | sort -u); do ping -c1 -W1 $ip >/dev/null 2>&1 && echo "OK   $ip" || echo "KO   $ip"; done
-    but: Si une seule salle est KO, le problème est dans la salle, pas sur l’ORC.
+      for ip in $(grep -Eo "= {NET_STO}\.[0-9]+" /etc/ymagis/network.cfg | cut -d' ' -f2 | sort -uV); do ping -c1 -W1 $ip >/dev/null 2>&1 && echo "OK   $ip" || echo "KO   $ip"; done
+    but: 'Teste chaque IP d’ingest déclarée dans network.cfg.'
+    lecture: 'Une seule IP KO = problème dans cette salle. Toutes KO = problème sur l’ORC ou le switch d’ingest.'
+    mots: [ingest, test, salles]
 
   - id: ajouter-une-ip-temporaire
     titre: Ajouter une IP temporaire
@@ -143,16 +211,20 @@ commandes:
     niveau: action
     commande: |-
       ip addr add {TMP_IP}/24 dev {IF}
-    but: Pour joindre un équipement sur un autre sous-réseau.
-    attention: Toujours la retirer après.
+    but: 'Donne une deuxième IP à l’ORC pour joindre un équipement parti dans un autre réseau.'
+    attention: 'Toujours la retirer après (fiche suivante). Choisir une IP libre de ce réseau.'
+    voir: [retirer-l-ip-temporaire]
+    mots: [ip temporaire, secours]
 
   - id: retirer-l-ip-temporaire
     titre: Retirer l’IP temporaire
     machine: orc
     niveau: action
     commande: |-
-      ip addr del {TMP_IP}/24 dev {IF}
-    but: Nettoyage.
+      ip addr del {TMP_IP}/24 dev {IF} ; ip -br a show {IF}
+    but: 'Nettoyage : retire l’IP temporaire et affiche les IP restantes du bridge.'
+    attendu: 'L’IP temporaire n’apparaît plus'
+    mots: [nettoyage, ip temporaire]
 
   - id: routage-actif
     titre: Routage actif
@@ -160,12 +232,16 @@ commandes:
     niveau: info
     commande: |-
       sysctl net.ipv4.ip_forward
-    attendu: net.ipv4.ip_forward = 1
+    but: 'L’ORC transmet-il les paquets d’un réseau à l’autre ? Sans routage, le TMS ne joint plus aucune salle.'
+    attendu: 'net.ipv4.ip_forward = 1'
+    mots: [routage, forward]
 
   - id: regles-forward-avec-compteurs
     titre: Règles FORWARD avec compteurs
     machine: orc
     niveau: info
     commande: |-
-      iptables -L FORWARD -nv --line-numbers
-    but: Les compteurs qui montent montrent quelle règle laisse passer ou bloque.
+      iptables -L FORWARD -nv --line-numbers | head -40
+    but: 'Les règles de pare-feu qui laissent passer (ou bloquent) le trafic entre réseaux, avec le nombre de paquets concernés.'
+    lecture: 'Relance la commande pendant un test : la règle dont le compteur **pkts** augmente est celle qui s’applique.'
+    mots: [iptables, pare-feu, forward]
