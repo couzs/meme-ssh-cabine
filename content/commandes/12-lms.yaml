@@ -45,6 +45,7 @@ commandes:
     commande: |-
       sudo du -xh --max-depth=2 /opt/lms-ymagis/data 2>/dev/null | sort -h | tail -25
     but: 'Les 25 plus gros dossiers de la bibliothèque (data/dcp).'
+    lecture: 'Le dernier est le plus gros. Le dossier `data/dcp` total est en bas de liste.'
     mots: [bibliothèque, data, dcp]
 
   - id: vue-complete-inbox
@@ -54,6 +55,7 @@ commandes:
     commande: |-
       sudo du -xh --max-depth=4 /opt/lms-ymagis/view 2>/dev/null | sort -h | tail -30
     but: 'Fait ressortir les gros DCP en inbox Eclair et IDC.'
+    lecture: 'Repère les longs métrages (`_FTR`) de plus de 100 Go : ce sont eux qui remplissent le volume. Les bandes-annonces (`_TLR`) pèsent peu.'
     mots: [inbox, eclair, idc]
 
   - id: inbox-eclair-par-taille
@@ -75,6 +77,7 @@ commandes:
     commande: |-
       sudo ls -lt /opt/lms-ymagis/view/eclair/inbox | head -40
     but: 'Dernières réceptions en premier.'
+    lecture: 'Les dates les plus anciennes en bas de liste : des DCP de plusieurs mois en inbox ne sont jamais purgés (voir « Étapes activées » d’extra_exchange).'
     mots: [eclair, inbox, date]
 
   - id: inbox-idc-par-taille
@@ -107,6 +110,7 @@ commandes:
     commande: |-
       sudo sh -c 'du -sh /opt/lms-ymagis/.Trash-*/files/* | sort -h | tail -20'
     but: 'Ce que l’exploitant a supprimé depuis le bureau sans vider la corbeille.'
+    lecture: 'La taille de chaque élément supprimé depuis le bureau. Le total est donné par « Répartition, corbeilles comprises ».'
     mots: [corbeille, trash]
 
   - id: corbeille-dates-de-suppression

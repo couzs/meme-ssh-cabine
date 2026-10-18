@@ -26,6 +26,10 @@ commandes:
     commande: |-
       grep -l "PackingList" {DCP_DIR}/*.xml
     but: 'La PKL n’a pas toujours un nom en pkl_… : on la reconnaît à son contenu.'
+    exemple: |
+      /media/usb0/NomDuFilm_FTR_SMPTE_OV/PKL_NomDuFilm.xml
+    attendu: 'Une ligne : le chemin de la PKL'
+    si_ko: 'Aucune ligne : DCP incomplet (PKL absente) ou mauvais dossier dans DCP_DIR.'
     mots: [pkl, packing list]
 
   - id: ce-qu-annonce-la-pkl

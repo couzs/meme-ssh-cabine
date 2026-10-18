@@ -21,6 +21,7 @@ commandes:
     commande: |-
       ipconfig /all
     but: 'MAC, DHCP activé ou non, DNS, pour chaque carte.'
+    lecture: '**Physical Address** = MAC, **DHCP Enabled: No** = IP fixe (obligatoire pour ajouter une IP secondaire), **DNS Servers** = serveurs DNS.'
     mots: [ipconfig, dhcp, dns, mac]
 
   - id: nom-des-cartes
@@ -30,6 +31,11 @@ commandes:
     commande: |-
       Get-NetAdapter | Format-Table Name, Status, LinkSpeed, MacAddress
     but: 'Nom exact de chaque carte (à reporter dans la variable WIN_IF), état et vitesse.'
+    exemple: |
+      Name      Status LinkSpeed MacAddress
+      ----      ------ --------- ----------
+      Ethernet  Up     1 Gbps    00-11-22-33-44-55
+    lecture: '**Name** est le nom à copier dans WIN_IF. Status Up = câble branché.'
     mots: [carte, adaptateur, nom]
 
   - id: config-ip-par-carte
@@ -39,6 +45,7 @@ commandes:
     commande: |-
       Get-NetIPConfiguration
     but: 'IP, passerelle et DNS de chaque carte.'
+    lecture: 'Pour chaque carte : **IPv4Address**, **IPv4DefaultGateway** (passerelle) et **DNSServer**.'
     mots: [configuration, ip]
 
   - id: tester-un-port
@@ -58,15 +65,17 @@ commandes:
     commande: |-
       ping -t {IP}
     but: 'Ping sans fin : pratique pendant un redémarrage pour voir l’équipement revenir. Ctrl+C pour arrêter.'
+    lecture: '« Request timed out » pendant le redémarrage de l’équipement, puis « Reply from … » quand il revient.'
     mots: [ping, continu]
 
   - id: chemin-reseau-pc
-    titre: Chemin réseau
+    titre: 'Chemin réseau depuis le PC'
     machine: win
     niveau: info
     commande: |-
       tracert -d {IP}
     but: 'Par où passent les paquets.'
+    lecture: 'Chaque ligne est un routeur traversé. Des `*` à partir d’une ligne = les paquets se perdent après le dernier routeur affiché.'
     mots: [tracert, chemin]
 
   - id: table-arp
@@ -76,6 +85,7 @@ commandes:
     commande: |-
       arp -a
     but: 'MAC vues par le PC (format 00-04-a5-…).'
+    lecture: 'Dynamic = MAC apprise récemment. Le début de la MAC indique le fabricant (00-04-a5 = Barco).'
     mots: [arp, mac]
 
   - id: table-de-routage
@@ -85,6 +95,7 @@ commandes:
     commande: |-
       route print -4
     but: 'Routes actives du PC.'
+    lecture: 'La ligne « 0.0.0.0 0.0.0.0 » donne la passerelle par défaut. Une route ajoutée à la main apparaît avec le réseau et l’IP de l’ORC.'
     mots: [route, routage]
 
   - id: ip-secondaire-temporaire
@@ -94,17 +105,19 @@ commandes:
     commande: |-
       New-NetIPAddress -InterfaceAlias "{WIN_IF}" -IPAddress {TMP_IP} -PrefixLength 24
     but: 'Ajoute une IP au PC pour joindre un équipement dans un autre réseau. Sans passerelle : ne coupe pas TeamViewer.'
+    attendu: 'Un bloc IPAddress / InterfaceAlias / PrefixLength 24 s’affiche'
     attention: 'Uniquement si la carte est en IP fixe. La retirer après.'
     voir: [retirer-l-ip-temporaire-pc]
     mots: [ip secondaire, temporaire]
 
   - id: retirer-l-ip-temporaire-pc
-    titre: Retirer l’IP temporaire
+    titre: 'Retirer l’IP temporaire du PC'
     machine: win
     niveau: action
     commande: |-
       Remove-NetIPAddress -IPAddress {TMP_IP} -Confirm:$false
     but: 'Nettoyage.'
+    attendu: 'Aucun message ; `ipconfig` ne montre plus l’IP temporaire'
     mots: [nettoyage, ip temporaire]
 
   - id: route-temporaire-via-l-orc
@@ -114,6 +127,8 @@ commandes:
     commande: |-
       route add {BAD_NET} mask 255.255.255.0 {ORC}
     but: 'Envoie le trafic vers le réseau de l’équipement perdu à travers l’ORC. Sans -p : disparaît au redémarrage du PC.'
+    attendu: 'OK!'
+    lecture: 'À taper dans une invite de commandes ou PowerShell **en administrateur**, sinon « The requested operation requires elevation ».'
     voir: [gw-temp]
     mots: [route, temporaire]
 
@@ -124,6 +139,7 @@ commandes:
     commande: |-
       route delete {BAD_NET}
     but: 'Nettoyage.'
+    attendu: 'OK!'
     mots: [route, supprimer]
 
   - id: tunnel-vers-l-interface-web

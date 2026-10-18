@@ -16,6 +16,7 @@ etapes:
     attendu: 'OK = joignable : le problème est dans les macros'
   - ref: dolby-visibles-sur-le-reseau
     titre: Autres Dolby du site
+    attendu: 'D’autres Dolby visibles = réseau OK, problème local à la salle'
   - titre: Sur place (client)
     machine: man
     consigne: 'Câble réseau branché des deux côtés, voyants de lien allumés, IP affichée en façade identique à celle déclarée, puis redémarrage électrique.'

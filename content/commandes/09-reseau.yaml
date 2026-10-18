@@ -68,6 +68,8 @@ commandes:
     commande: |-
       ip neigh show | grep -i "00:04:a5" | sort -V
     but: 'Projecteurs et serveurs ICMP/IMS Barco présents sur le réseau.'
+    lecture: 'Une ligne par équipement Barco : IP, interface, MAC. Compare avec le nombre de projecteurs et de serveurs Barco du site.'
+    si_ko: 'Aucune ligne : rien n’a encore été contacté. Lance d’abord « Balayage rapide d’un réseau ».'
     mots: [barco, projecteur, mac]
 
   - id: ports-sans-nmap

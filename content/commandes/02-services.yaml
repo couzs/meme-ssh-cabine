@@ -161,6 +161,7 @@ commandes:
     commande: |-
       systemctl list-units --type=service --state=running --no-pager
     but: 'Liste de tout ce qui tourne sur la machine.'
+    lecture: 'Une ligne par service : **UNIT** (nom), **SUB** = running. Utile pour vérifier qu’un service attendu (tomcat8, mongodb, ssh, cron) est bien dans la liste.'
     mots: [services, running]
 
   - id: ports-en-ecoute

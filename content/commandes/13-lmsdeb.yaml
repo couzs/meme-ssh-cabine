@@ -56,6 +56,10 @@ commandes:
     commande: |-
       cd /opt/lms-ymagis/lms && for d in */; do n=$(du -sm "$d" | cut -f1); [ "$n" -lt 100 ] && echo "$n Mo  $d"; done
     but: 'Dossiers de moins de 100 Mo : DCP tronqué, livraison interrompue ou dossier vide resté après un retrait.'
+    exemple: |
+      0 Mo  NomDuFilm_FTR_F_FR-XX_FR_51_2K_…/
+      37 Mo  AutreFilm_TLR-1_F_FR-XX_FR_20_2K_…/
+    lecture: 'Taille en Mo puis nom. 0 Mo = dossier vide. Un long métrage (`_FTR`) de quelques Mo = livraison coupée, à supprimer avant de le faire renvoyer.'
     attention: 'Une bande-annonce peut peser moins de 100 Mo : regarder le nom avant de conclure.'
     mots: [vide, tronqué, incomplet]
 
@@ -76,6 +80,7 @@ commandes:
     commande: |-
       ls -la /opt/lms-ymagis/lms/.tmp ; du -sh /opt/lms-ymagis/lms/.tmp
     but: 'Morceaux de transferts interrompus qui peuvent occuper beaucoup de place.'
+    lecture: 'Des fichiers de plusieurs Go dans .tmp = transferts interrompus. Ils se suppriment avec l’accord du client, une fois qu’aucun transfert n’est en cours (`tail /var/log/proftpd/proftpd.log`).'
     mots: [tmp, transferts, cachés]
 
   - id: erreurs-ftp
@@ -95,6 +100,7 @@ commandes:
     commande: |-
       tail -30 /var/log/proftpd/proftpd.log
     but: 'IP du distributeur (NAS Hyphen, TMS…) et résultat de chaque session.'
+    lecture: 'Chaque session : IP du client, « USER lmsuser: Login successful » puis les transferts. Une même IP qui se reconnecte sans cesse sans transfert = le distributeur réessaie en échec.'
     attention: 'Un mot de passe tapé par erreur dans le champ identifiant apparaît en clair ici : le faire changer.'
     mots: [ftp, connexions, distributeur, hyphen]
 
@@ -115,6 +121,7 @@ commandes:
     commande: |-
       grep -i "{FILM}" /var/log/proftpd/*.log /var/log/proftpd/xferlog | tail -10
     but: 'Le film a-t-il déjà été tenté ?'
+    lecture: 'Rien = le film n’a jamais été envoyé à ce LMS. Des lignes avec `c` en fin de ligne dans xferlog = fichiers reçus complets.'
     mots: [film, ftp, logs]
 
   - id: une-purge-automatique-existe

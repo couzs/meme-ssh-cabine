@@ -36,7 +36,7 @@ commandes:
     mots: [ps, applications, analogpresets]
 
   - id: qui-est-connecte-jnior
-    titre: Qui est connecté
+    titre: 'Qui est connecté au JNIOR'
     machine: jnr
     niveau: info
     commande: |-
@@ -52,6 +52,12 @@ commandes:
     commande: |-
       ipconfig
     but: 'IP, masque, passerelle, MAC (00:60:35:…).'
+    exemple: |
+      IP Address: 192.0.2.12
+      Subnet Mask: 255.255.255.0
+      Gateway: 192.0.2.254
+      MAC: 00:60:35:00:00:01
+    lecture: 'L’IP doit être celle déclarée dans le serveur de salle (devices.xml).'
     mots: [ip, réseau, jnior]
 
   - id: dernier-demarrage
@@ -61,6 +67,7 @@ commandes:
     commande: |-
       cat /jniorboot.log
     but: 'Heure du boot, firmware, modules détectés (analogique 10 V, panneau), applications lancées.'
+    lecture: 'La date du boot dit si le JNIOR a redémarré récemment (coupure). La liste des modules doit inclure la carte analogique 10 V pour la lumière.'
     mots: [boot, démarrage, firmware]
 
   - id: journal-systeme
@@ -70,6 +77,7 @@ commandes:
     commande: |-
       cat /jniorsys.log
     but: 'Connexions, modifications du registre, redémarrages. L’ancien journal est dans jniorsys.log.bak.'
+    lecture: 'Les dernières lignes sont les plus récentes : connexions telnet, changements de registre et redémarrages avec leur heure.'
     mots: [journal, jnior]
 
   - id: commandes-recues-du-serveur
@@ -89,6 +97,7 @@ commandes:
     commande: |-
       cat /analogpresets.log
     but: 'Bannière de démarrage puis « IO Monitor Scan Rate ». Les changements de niveau ne sont pas journalisés.'
+    attendu: 'Bannière AnalogPresets puis « IO Monitor Scan Rate Set to 500 milliseconds »'
     mots: [lumière, analogpresets]
 
   - id: fichiers-installes
@@ -98,6 +107,7 @@ commandes:
     commande: |-
       ls /flash
     but: 'analogpresets.jnior, task.jnior… = applications disponibles.'
+    attendu: 'analogpresets.jnior présent pour la lumière'
     mots: [flash, fichiers]
 
   - id: configuration-complete
@@ -118,6 +128,9 @@ commandes:
     commande: |-
       registry Run/analogpresets
     but: 'Remplacer par la clé voulue, ex. AppData/AnalogPresets/Level_1/RelayOutputAction.'
+    exemple: |
+      Run/analogpresets = /flash/analogpresets.jnior
+    lecture: '« = » suivi de la valeur. Rien après le = : la clé n’existe pas.'
     mots: [registre, clé]
 
   - id: relais-et-entrees-en-direct
@@ -138,6 +151,7 @@ commandes:
     commande: |-
       registry AppData/AnalogPresets/Level_1/RelayOutputAction = 7
     but: 'Syntaxe : registry clé = valeur.'
+    attendu: 'La commande ne répond rien. Relire ensuite la clé pour vérifier.'
     attention: 'Une valeur avec un espace fait échouer la commande (l’aide s’affiche).'
     mots: [registre, écrire]
 
@@ -159,5 +173,6 @@ commandes:
     commande: |-
       reboot
     but: 'Environ 80 s. Les applications de la clé Run redémarrent seules.'
+    lecture: 'La session telnet se coupe. Attendre environ 80 s puis se reconnecter et vérifier avec `ps` que les applications sont reparties.'
     attention: 'Hors séance : la lumière automatisée est coupée pendant le redémarrage.'
     mots: [reboot, redémarrer]

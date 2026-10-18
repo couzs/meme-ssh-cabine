@@ -1,7 +1,7 @@
 id: nat
 titre: 'ORC : NAT & ferm'
 groupe: Réseau
-intro: 'Le TMS ne voit pas les vraies IP des salles : il parle à des IP virtuelles que l’ORC traduit (NAT 1:1). La correspondance est dans network.cfg, transformée en règles par netconfig.pl puis appliquée par ferm.'
+intro: 'Le TMS ne voit pas les vraies IP des salles : il parle à des IP virtuelles que l’ORC traduit (NAT 1:1). La correspondance est dans network.cfg, transformée en règles par netconfig.pl puis appliquée par ferm. Toutes ces commandes se lancent en root sur l’ORC.'
 
 commandes:
   - id: correspondances-d-une-salle
@@ -39,6 +39,7 @@ commandes:
     commande: |-
       iptables -t nat -S
     but: 'Redirections (DNAT) et réécritures de source (SNAT) en vigueur.'
+    lecture: 'Lignes `-A PREROUTING … -j DNAT --to-destination X` = l’IP virtuelle est redirigée vers X. Lignes `-A POSTROUTING … -j SNAT` = la source est réécrite en IP de l’ORC.'
     mots: [nat, iptables]
 
   - id: valeur-dans-la-conf-ferm
@@ -48,6 +49,9 @@ commandes:
     commande: |-
       grep -rnF "{VIP}" /etc/ferm/
     but: 'netconfig.conf contient les &VMAP_MGT / &VMAP_STO lus par ferm.'
+    exemple: |
+      /etc/ferm/netconfig.conf:58:&VMAP_MGT(203.0.113.41, 192.0.2.42);
+    lecture: 'Le premier argument est l’IP virtuelle, le second l’IP réelle. Elle doit correspondre à network.cfg.'
     mots: [ferm, netconfig]
 
   - id: previsualiser-les-regles-ferm
@@ -69,6 +73,8 @@ commandes:
     commande: |-
       ferm --interactive /etc/ferm/ferm.conf
     but: 'Applique les nouvelles règles, puis demande confirmation. Taper `yes` dans les 30 secondes. Sans réponse (session coupée par une mauvaise règle), ferm revient tout seul aux anciennes règles.'
+    attendu: 'Le message de confirmation, puis « yes » tapé dans les 30 s'
+    lecture: 'Si ta session SSH ne répond plus après l’application, n’essaie rien : au bout de 30 secondes, ferm remet les anciennes règles et la connexion revient.'
     attention: 'Toujours prévisualiser avant. Une règle fausse peut couper tout le site, ta session comprise : c’est pour ça qu’on utilise --interactive.'
     mots: [ferm, appliquer, pare-feu]
 
@@ -89,6 +95,7 @@ commandes:
     commande: |-
       grep -rl "network.cfg" /usr/local/bin /usr/local/sbin /etc/init.d 2>/dev/null
     but: 'Les scripts qui lisent network.cfg : getconfig.pl, orchestra_*.py, set_ftp_inbox.sh… aucun n’applique iptables directement.'
+    lecture: 'Une ligne par script. Utile avant de modifier network.cfg pour savoir ce qui sera relu.'
     mots: [network.cfg, scripts]
 
   - id: puppet-actif
@@ -108,4 +115,5 @@ commandes:
     commande: |-
       puppet agent -t --noop
     but: 'Montre ce que Puppet changerait, sans rien appliquer.'
+    lecture: 'Les lignes « Would have triggered » ou « current_value … should be » montrent ce que Puppet écraserait. Aucune ligne de ce type = la configuration locale est conforme.'
     mots: [puppet, noop]

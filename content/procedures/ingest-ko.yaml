@@ -8,6 +8,7 @@ comprendre: |
 etapes:
   - ref: toutes-les-ip-d-ingest-declarees
     titre: Toutes les IP d’ingest déclarées
+    attendu: 'Une seule IP KO = problème dans cette salle'
   - titre: L’IP d’ingest de la salle
     machine: orc
     commande: |-
@@ -18,6 +19,7 @@ etapes:
     attendu: 'Deux MAC qui se suivent (gestion .X2 + ingest) = un même serveur toujours allumé'
   - ref: toutes-les-mac-barco-apprises
     titre: MAC Barco apprises
+    attendu: 'La MAC du nouveau serveur apparaît sur le port d’ingest (bond0)'
   - ref: qui-repond-a-une-ip-arp
     titre: Qui répond à l’IP d’ingest
     attendu: 'Seulement des « who-has » = port d’ingest non câblé ou sans IP'

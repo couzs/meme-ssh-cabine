@@ -29,6 +29,7 @@ etapes:
     attendu: '« CPL ingested » puis des lignes [Progress]. « retry with cache memory enabled » est sans gravité'
   - ref: avancement-d-un-ingest-manuel
     titre: Avancement et temps restant
+    attendu: 'Le pourcentage augmente entre les deux lignes'
   - ref: ingest-en-cours
     titre: Terminé ?
     attendu: 'Rien = terminé'

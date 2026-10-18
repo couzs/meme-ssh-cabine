@@ -9,8 +9,12 @@ etapes:
   - ref: remplissage-du-volume-de-contenu
     titre: Remplissage du volume
     attendu: 'Note l’espace libre de départ pour le ticket'
+  - ref: passer-root
+    titre: Passer root (les dossiers de contenu ne se lisent qu’en root)
+    attendu: 'Invite terminée par #'
   - ref: repartition-corbeilles-comprises
     titre: Répartition, corbeilles comprises
+    attendu: 'Le dossier le plus gros en dernier : view, data ou .Trash-…'
   - ref: vue-complete-inbox
     titre: Gros DCP en inbox
     attendu: 'Longs métrages terminés encore en inbox Eclair / IDC'

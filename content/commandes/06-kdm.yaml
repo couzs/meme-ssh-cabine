@@ -88,6 +88,8 @@ commandes:
     commande: |-
       mongo --quiet ytms --eval 'db.kdms.find({endDate:{$gte:new Date()}},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).limit(40).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})'
     but: 'Les 40 KDM valides dont la période commence le plus récemment : ce qui est arrivé ces derniers jours.'
+    lecture: 'Une ligne par KDM : période de validité puis nom. Les KDM reçues pour les films de la semaine doivent apparaître en haut. Un film attendu absent = voir la procédure « KDM dans la boîte mail mais absentes du TMS ».'
+    voir: [kdm-mail]
     mots: [kdm, récentes, semaine]
 
   - id: kdm-recues-sur-le-lms

@@ -11,16 +11,19 @@ etapes:
     attendu: 'Repérer la ligne à 100 %'
   - ref: inodes
     titre: Ou plus d’inodes ?
+    attendu: 'IUse% sous 100 %'
   - ref: ce-qui-remplit-les-logs
     titre: Logs en cause ?
     attendu: 'journal ou tomcat8 en tête'
   - ref: plus-gros-fichiers
     titre: Les plus gros fichiers
+    attendu: 'Des fichiers oubliés (.pcap, vieilles sauvegardes) à faire valider avant suppression'
   - ref: purger-les-vieux-journaux
     titre: Purger journald
     attendu: 'Ne touche qu’aux journaux journald archivés'
   - ref: vider-un-log-sans-le-supprimer
     titre: Vider un log géant (si besoin)
+    attendu: 'Le fichier repasse à 0 octet, df -h montre la place récupérée'
   - titre: Place pas libérée ?
     machine: lin
     commande: |-

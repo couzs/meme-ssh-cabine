@@ -4,6 +4,19 @@ groupe: Salle
 intro: 'DCP2000 / ShowVault / IMS : journaux dans /doremi/log, configuration dans /doremi/etc, contenus dans /data. Système réduit : pas de nc, timeout, base64 ni curl (voir les alternatives dans chaque fiche).'
 
 commandes:
+  - id: serveur-de-salle-joignable
+    titre: Serveur de la salle joignable ?
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 {SRV} ; ip neigh show {SRV}
+    but: 'Depuis le TMS ou l’ORC : le serveur de salle répond-il, et quelle carte réseau répond ?'
+    lecture: 'Une MAC en `00:25:90`, `00:30:48` ou `ac:1f:6b` = serveur Supermicro (Doremi) ; `00:04:a5` = serveur Barco (ICMP).'
+    attendu: '0% packet loss et une MAC'
+    si_ko: 'FAILED : serveur éteint, câble débranché ou mauvaise IP. Faire vérifier en cabine que le serveur est allumé.'
+    mots: [serveur, salle, ping, doremi]
+    maj: 2026-10-18
+
   - id: espace-et-uptime
     titre: Espace et uptime
     machine: dor
@@ -33,6 +46,7 @@ commandes:
     commande: |-
       grep -hi "{FILM}" /doremi/log/*.log | tail -20
     but: 'Ingest, lecture ou KDM concernant ce film.'
+    lecture: 'Les dernières lignes sont les plus récentes. Cherche les mots ingest, KDM, play : ils disent si le film a été ingéré, si sa clé a été acceptée et s’il a été joué.'
     mots: [film, logs, doremi]
 
   - id: une-cpl-dans-les-logs
@@ -42,6 +56,7 @@ commandes:
     commande: |-
       grep -hi "{CPL}" /doremi/log/*.log | tail -20
     but: 'Plus précis que le nom du film : l’UUID d’une CPL est unique.'
+    lecture: 'L’UUID se trouve dans la CPL (`<Id>urn:uuid:…</Id>`) ou dans l’interface du serveur.'
     mots: [cpl, uuid, logs]
 
   - id: ingests-en-echec
@@ -72,6 +87,9 @@ commandes:
     commande: |-
       mount | grep -iE "usb|media|sd[b-z]" ; ls /media
     but: 'Où trouver un DCP livré sur clé ou disque (à mettre dans la variable DCP_DIR).'
+    exemple: |
+      /dev/sdb1 on /media/usb0 type ext2 (ro)
+    lecture: 'Le point de montage (ici `/media/usb0`) est le début du chemin à mettre dans DCP_DIR. Aucune ligne = clé non reconnue : la rebrancher ou essayer un autre port.'
     mots: [usb, clé, disque, media]
 
   - id: peripheriques-declares
@@ -81,6 +99,7 @@ commandes:
     commande: |-
       grep -n -iE "name|address|host|port|type" /doremi/etc/devices.xml | head -60
     but: 'Projecteur, processeur son, JNIOR… tels que le serveur les connaît, avec IP et port.'
+    lecture: 'Chaque bloc décrit un équipement : nom, type, adresse IP et port. Compare l’IP avec celle de l’équipement réel (ping, MAC).'
     mots: [périphériques, devices, configuration]
 
   - id: un-peripherique-precis
@@ -88,8 +107,9 @@ commandes:
     machine: dor
     niveau: info
     commande: |-
-      grep -n -i -B3 -A8 "{IP}" /doremi/etc/devices.xml
+      grep -n -F -B3 -A8 "{IP}" /doremi/etc/devices.xml
     but: 'Le bloc de configuration d’un équipement (3 lignes avant, 8 après l’IP).'
+    lecture: 'Rien = aucun périphérique déclaré à cette IP sur ce serveur.'
     mots: [périphérique, ip, devices]
 
   - id: macros-d-automation
@@ -99,6 +119,7 @@ commandes:
     commande: |-
       grep -n -i -A6 "macro" /doremi/etc/macros.xml | head -80
     but: 'Ce que chaque macro envoie et à quel périphérique.'
+    lecture: 'Chaque macro liste ses actions : périphérique visé et commande envoyée. Une macro vide n’envoie rien (cause fréquente de lumière ou son qui ne réagit pas).'
     mots: [macros, automation]
 
   - id: config-modifiee-recemment

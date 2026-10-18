@@ -1,7 +1,7 @@
 id: orc
 titre: 'ORC : captures'
 groupe: Réseau
-intro: 'L’ORC est le routeur du site et la seule machine avec tcpdump : c’est d’ici qu’on « écoute » le réseau des salles. Chaque capture est limitée dans le temps (timeout) pour ne jamais tourner indéfiniment.'
+intro: 'L’ORC est le routeur du site et la seule machine avec tcpdump : c’est d’ici qu’on « écoute » le réseau des salles. Sur l’ORC, on travaille en root (sudo -i en arrivant). Chaque capture est limitée dans le temps (timeout) pour ne jamais tourner indéfiniment.'
 
 commandes:
   - id: role-des-bridges
@@ -107,6 +107,7 @@ commandes:
     commande: |-
       timeout 120 tcpdump -i {IF_STO} -n -e 'arp and not src net {NET}.0/24'
     but: 'Sur le réseau d’ingest, n’affiche que l’ARP qui ne vient pas du réseau de gestion : fait ressortir une IP inattendue (port d’ingest mal configuré).'
+    lecture: 'Chaque ligne « who-has X tell Y » vient d’un équipement Y du réseau d’ingest. Une adresse Y qui n’appartient pas au réseau d’ingest = port d’ingest configuré avec une mauvaise IP.'
     mots: [arp, ingest, filtre]
 
   - id: qui-repond-a-une-ip-arp
@@ -183,6 +184,8 @@ commandes:
     commande: |-
       timeout 120 tcpdump -i {IF} -n -w /tmp/capture_$(date +%H%M).pcap host {IP} ; ls -lh /tmp/capture_*.pcap
     but: 'Enregistre 2 minutes de trafic dans un fichier .pcap à ouvrir dans Wireshark ou à joindre à un ticket constructeur.'
+    attendu: '« N packets captured » puis le fichier .pcap avec sa taille'
+    lecture: 'Pour récupérer le fichier : `scp root@ORC:/tmp/capture_HHMM.pcap .` depuis ton poste, ou WinSCP.'
     attention: 'Penser à supprimer le fichier de /tmp une fois récupéré.'
     mots: [pcap, wireshark, capture, ticket]
 
@@ -193,6 +196,7 @@ commandes:
     commande: |-
       ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & ping -c1 -W1 {NET_STO}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh show | grep -v FAILED | sort -V
     but: 'Les deux réseaux en environ 2 secondes, puis toutes les IP vivantes avec leur MAC.'
+    lecture: 'Une ligne par équipement vivant, gestion et ingest mélangés et triés. Un serveur de salle doit apparaître deux fois (une IP de gestion, une d’ingest).'
     mots: [scan, balayage, ingest, gestion]
 
   - id: toutes-les-ip-d-ingest-declarees
@@ -212,6 +216,11 @@ commandes:
     commande: |-
       ip addr add {TMP_IP}/24 dev {IF}
     but: 'Donne une deuxième IP à l’ORC pour joindre un équipement parti dans un autre réseau.'
+    attendu: 'Aucun message. `ip -br a show {IF}` affiche alors deux adresses.'
+    detail: |
+      ip addr add → ajoute une adresse à une interface
+      {TMP_IP}/24 → l’adresse temporaire et son masque
+      dev {IF} → sur ce bridge
     attention: 'Toujours la retirer après (fiche suivante). Choisir une IP libre de ce réseau.'
     voir: [retirer-l-ip-temporaire]
     mots: [ip temporaire, secours]

@@ -17,8 +17,10 @@ etapes:
     titre: Autre chose en échec ?
   - ref: erreurs-tomcat-sans-les-piles
     titre: Pourquoi (dernières erreurs Tomcat)
+    attendu: 'Une erreur qui se répète (Mongo, mémoire, disque) donne la cause. Note l’heure de la première.'
   - ref: top-20-cpu-ram
     titre: Un process qui sature la machine ?
+    attendu: 'Aucun process au-dessus de 80 % de CPU de façon durable'
   - titre: Prévenir le client
     machine: man
     consigne: 'Le redémarrage coupe l’interface environ une minute. Demander s’il y a une séance en cours pilotée par le TMS.'

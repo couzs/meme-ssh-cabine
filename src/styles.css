@@ -318,3 +318,4 @@ body.v-compact li.step{padding:8px 0}
   details.learn{display:block}
   pre.cmd{background:#fff;color:#000;border:1px solid #999}
 }
+.card,.pbody,.page,details.proc>summary,.tile,.hit,.dlg-body{overflow-wrap:anywhere}

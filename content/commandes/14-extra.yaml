@@ -47,6 +47,7 @@ commandes:
     commande: |-
       tail -20 /var/log/extra_exchange.log
     but: 'Ce que fait le script en ce moment.'
+    lecture: 'Chaque ligne commence par la date. La dernière ligne dit ce que le script traite en ce moment (vérification de checksums, copie, nettoyage).'
     mots: [journal, extra_exchange]
 
   - id: etapes-activees

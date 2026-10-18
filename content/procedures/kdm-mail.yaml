@@ -20,6 +20,7 @@ etapes:
     titre: KDM vides ou tronquées sur le LMS
   - ref: kdm-en-base-pour-un-film
     titre: Le film est-il en base ?
+    attendu: 'Une ligne par période et par version. Rien = KDM jamais importée.'
   - ref: films-avec-une-kdm-encore-valide
     titre: Films avec une KDM valide
     attendu: 'Le film du client apparaît avec une date de fin future'

@@ -88,6 +88,9 @@ commandes:
     commande: |-
       mongo --quiet ytms --eval 'var s=db.stats(1024*1024); print("données "+s.dataSize.toFixed(0)+" Mo | index "+s.indexSize.toFixed(0)+" Mo | sur disque "+s.storageSize.toFixed(0)+" Mo")'
     but: 'Taille des données et des index en Mo.'
+    exemple: |
+      données 412 Mo | index 96 Mo | sur disque 520 Mo
+    lecture: 'Une base de quelques centaines de Mo est normale. Une taille qui explose d’un coup (plusieurs Go) mérite un ticket N2 : souvent une collection de logs qui n’est plus purgée.'
     mots: [taille, base, stats]
 
   - id: version-de-mongo

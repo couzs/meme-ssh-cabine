@@ -23,11 +23,13 @@ etapes:
     attendu: 'Le PC du site (route via l’ORC) joint l’équipement'
   - ref: route-temporaire-via-l-orc
     titre: Route sur le PC
+    attendu: 'OK!'
   - titre: Corriger l’équipement
     machine: man
     consigne: 'Depuis le PC : Communicator ou interface web, remettre l’IP prévue.'
   - ref: supprimer-la-route
     titre: Retirer la route du PC
+    attendu: 'OK!'
   - titre: Tout retirer sur l’ORC
     machine: orc
     niveau: action

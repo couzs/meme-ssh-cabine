@@ -155,7 +155,7 @@ commandes:
     machine: lin
     niveau: info
     commande: |-
-      journalctl --list-boots --no-pager | tail
+      sudo journalctl --list-boots --no-pager | tail
     but: 'Les derniers démarrages connus du journal, avec leurs dates. Le numéro de gauche sert à lire le journal d’un démarrage précis (0 = actuel, -1 = précédent).'
     exemple: |
        -2 5f1c… Mon 2026-10-06 09:40:12 CEST—Wed 2026-10-15 03:11:58 CEST

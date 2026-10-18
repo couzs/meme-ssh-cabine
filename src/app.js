@@ -74,7 +74,10 @@ PROCS.forEach(p => {
   p.etapes.forEach((s, i) => { if (s.commande) COPY['p:' + p.id + ':' + i] = { cmd: s.commande, lv: s.niveau, m: s.machine }; });
   p.readOnly = p.etapes.every(s => s.niveau === 'info');
   const cmds = p.etapes.filter(s => s.commande);
-  if (p.readOnly && p.copier_tout && cmds.length > 1 && cmds.every(s => s.machine === cmds[0].machine)) COPY['p:' + p.id + ':all'] = { cmd: cmds.map(s => s.commande).join('\n'), lv: 'info', m: cmds[0].machine };
+  /* « Copier tout » seulement si aucune commande ne demande de saisie (mot de passe, session) ni ne tourne sans fin :
+     sinon la saisie avalerait les lignes collées ensuite. */
+  const interactive = s => /(^|[;&|(]\s*)(sudo|ssh|ftp|telnet|top|jrmon|script|mongo ytms\s*$)\b|tail -f|journalctl -f/m.test(s.commande);
+  if (p.readOnly && p.copier_tout && cmds.length > 1 && cmds.every(s => s.machine === cmds[0].machine) && !cmds.some(interactive)) COPY['p:' + p.id + ':all'] = { cmd: cmds.map(s => s.commande).join('\n'), lv: 'info', m: cmds[0].machine };
   p.machines = [...new Set(p.etapes.map(s => s.machine).filter(m => m !== 'man'))];
   p.lvMax = p.etapes.some(s => s.niveau === 'danger') ? 'danger' : p.etapes.some(s => s.niveau === 'action') ? 'action' : 'info';
   p.hay = norm([p.titre, p.quand, strip(p.comprendre), p.theme, p.symptomes.join(' '), strip(p.attention), p.etapes.map(s => s.titre + ' ' + s.commande + ' ' + strip(s.attendu) + ' ' + strip(s.consigne)).join(' ')].join(' '));
@@ -292,8 +295,8 @@ const fmtDate = d => { const t = Date.parse(d); return isNaN(t) ? d : new Date(t
 /* ================= MON SITE ================= */
 const vgroups = $('vgroups');
 vgroups.innerHTML = [...new Set(VARS.map(v => v.groupe))].map(g => '<fieldset class="vg"><legend>' + esc(g) + '</legend>' +
-  VARS.filter(v => v.groupe === g).map(v => '<div class="vrow"><label class="k" for="v-' + v.cle + '" title="' + esc(v.libelle) + '">{' + v.cle + '}</label><input id="v-' + v.cle + '" data-k="' + v.cle + '" placeholder="' + esc(v.libelle) + '" maxlength="200" spellcheck="false" autocomplete="off" aria-describedby="e-' + v.cle + '">' +
-    '<span class="verr" id="e-' + v.cle + '" hidden></span>' + (v.aide ? '<span class="vaide">' + esc(v.aide) + '</span>' : '') + '</div>').join('') + '</fieldset>').join('');
+  VARS.filter(v => v.groupe === g).map(v => '<div class="vrow"><label class="k" for="v-' + v.cle + '" title="' + esc(v.libelle) + '">{' + v.cle + '}</label><input id="v-' + v.cle + '" data-k="' + v.cle + '" placeholder="' + esc(v.exemple ? 'ex. ' + v.exemple : v.libelle) + '" maxlength="200" spellcheck="false" autocomplete="off" aria-describedby="e-' + v.cle + '">' +
+    '<span class="verr" id="e-' + v.cle + '" hidden></span>' + '<span class="vaide">' + esc(v.libelle + (v.aide ? ' · ' + v.aide : '')) + '</span>' + '</div>').join('') + '</fieldset>').join('');
 const siteSel = $('site');
 const getProfile = n => has(S.profiles, n) ? S.profiles[n] : has(PRESETS, n) ? PRESETS[n] : null;
 function renderSites() {

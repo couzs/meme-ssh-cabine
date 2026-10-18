@@ -42,4 +42,5 @@ commandes:
     commande: |-
       grep -n -i -B2 -A8 "cp650\|dolby" /doremi/etc/devices.xml
     but: 'IP et port attendus par le serveur Doremi.'
+    lecture: 'L’adresse et le port (61412 pour un CP650) doivent correspondre au processeur réel.'
     mots: [dolby, devices, configuration]

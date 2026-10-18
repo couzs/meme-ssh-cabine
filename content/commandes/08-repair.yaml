@@ -31,6 +31,8 @@ commandes:
     commande: |-
       sudo mongodump -o /backup
     but: 'Sauvegarde toutes les bases Mongo dans /backup.'
+    attendu: 'Des lignes « done dumping » pour chaque base'
+    lecture: 'Vérifie la place avant (`df -h /`) : la sauvegarde complète peut peser plusieurs centaines de Mo.'
     mots: [sauvegarde, backup]
 
   - id: restaurer-la-base
@@ -71,6 +73,7 @@ commandes:
     commande: |-
       sudo chown -R mongodb:mongodb /var/lib/mongodb
     but: 'Rend les fichiers de la base à l’utilisateur mongodb. Nécessaire si une réparation a été lancée en root : sinon Mongo refuse de démarrer (« Permission denied »).'
+    attendu: 'Aucun message. `ls -l /var/lib/mongodb | head` montre ensuite mongodb comme propriétaire.'
     mots: [droits, chown, mongo]
 
   - id: purger-les-vieux-journaux
