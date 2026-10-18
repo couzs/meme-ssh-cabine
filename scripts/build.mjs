@@ -20,8 +20,21 @@ const err = (f, msg) => errors.push(rel(f) + ' : ' + msg);
 const warn = (f, msg) => warnings.push(rel(f) + ' : ' + msg);
 const rel = f => path.relative(ROOT, f);
 
+/* Un bloc « | » dont la première ligne commence par des espaces (sortie de commande alignée) n’est pas lisible
+   en YAML sans indicateur d’indentation : on l’ajoute ici pour que les rédacteurs n’aient pas à y penser. */
+function fixBlocks(text) {
+  const L = text.split('\n');
+  for (let i = 0; i < L.length; i++) {
+    const m = L[i].match(/^( *)(- )?([\w-]+): ([|>][+-]?)\s*$/);
+    if (!m) continue;
+    const k = m[1].length + (m[2] ? 2 : 0);
+    let j = i + 1; while (j < L.length && !L[j].trim()) j++;
+    if (j < L.length && /^ */.exec(L[j])[0].length > k + 2) L[i] = L[i].replace(/([|>][+-]?)\s*$/, '$12');
+  }
+  return L.join('\n');
+}
 function readYaml(file) {
-  try { return yaml.load(fs.readFileSync(file, 'utf8'), { filename: file }); }
+  try { return yaml.load(fixBlocks(fs.readFileSync(file, 'utf8')), { filename: file }); }
   catch (e) { err(file, 'YAML illisible : ' + (e.reason || e.message) + (e.mark ? ' (ligne ' + (e.mark.line + 1) + ')' : '')); return null; }
 }
 const list = dir => fs.existsSync(C(dir)) ? fs.readdirSync(C(dir)).filter(f => !f.startsWith('.') && !f.startsWith('_')).sort().map(f => C(path.join(dir, f))) : [];

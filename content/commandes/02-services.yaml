@@ -1,101 +1,223 @@
 id: services
 titre: Services
 groupe: TMS & Linux
-intro: État des process TMS, Tomcat, Mongo et ports en écoute.
+intro: 'Est-ce que les programmes du TMS tournent ? Tomcat (l’interface web), MongoDB (la base) et le cœur TMS (ingest et supervision). Plus les outils pour voir ce qui consomme et ce qui écoute sur le réseau.'
 
 commandes:
+  - id: etat-des-services-tms
+    titre: État des trois services TMS d’un coup
+    machine: tms
+    niveau: info
+    commande: |-
+      for s in tomcat8 mongodb; do printf "%-10s %s\n" $s "$(systemctl is-active $s)"; done ; /etc/init.d/cinemanext-monitoring-remote status
+    but: 'Le contrôle à faire en premier quand le TMS « ne marche plus » : Tomcat, Mongo et le cœur TMS sont-ils démarrés ?'
+    detail: |
+      for s in tomcat8 mongodb → répète la commande pour chacun des deux services
+      systemctl is-active → répond un seul mot : active, inactive, failed…
+      printf "%-10s %s\n" → aligne le nom et l’état en colonnes
+      /etc/init.d/cinemanext-monitoring-remote status → état du cœur TMS (service à l’ancienne, hors systemd)
+    exemple: |
+      tomcat8    active
+      mongodb    active
+      cinemanext-monitoring-remote is running
+    attendu: 'active, active, puis « is running »'
+    lecture: '**active** = démarré. **inactive** = arrêté proprement. **failed** = planté : lire ses logs avant de le relancer.'
+    si_ko: |
+      - mongodb pas active : commencer par lui (Tomcat et le cœur TMS en dépendent). Voir « Relancer MongoDB ».
+      - Un service en failed : `journalctl -u NOM -n 50 --no-pager` montre pourquoi.
+    voir: [relancer-mongodb, relancer-le-coeur-tms, logs-d-un-service-sur-1-h]
+    mots: [services, état, tms ko, tomcat, mongo]
+    maj: 2026-10-18
+
   - id: process-en-cours
-    titre: Process en cours
+    titre: Process en direct (top)
     machine: lin
     niveau: info
     commande: |-
       top
-    but: Process et consommation en direct (q pour quitter).
+    but: 'Tableau de bord en direct : charge, mémoire et les programmes qui consomment le plus. Se rafraîchit toutes les 3 secondes.'
+    lecture: |
+      - En haut : **load average** (charge), **%Cpu(s)** dont `wa` (attente disque : élevé = disque saturé ou malade), **MiB Mem** (mémoire).
+      - Dans la liste : colonne **%CPU** et **%MEM** de chaque process, **COMMAND** = son nom (java = Tomcat ou le cœur TMS, mongod = la base).
+      - Touches utiles : `M` trie par mémoire, `P` par CPU, `q` pour quitter.
+    mots: [top, cpu, mémoire, process, lent]
 
   - id: top-20-cpu-ram
-    titre: Top 20 CPU / RAM
+    titre: Top 20 CPU / RAM (instantané)
     machine: lin
     niveau: info
     commande: |-
-      top -b -n 1 | head -n 20
-    but: Instantané des process qui consomment le plus.
+      ps -eo pid,user,%cpu,%mem,etime,comm --sort=-%cpu | head -20
+    but: 'Photo des 20 process qui consomment le plus de CPU, avec depuis combien de temps ils tournent. Contrairement à top, le résultat se copie dans un ticket.'
+    detail: |
+      ps -eo → liste tous les process (-e) avec les colonnes choisies (-o)
+      pid,user,%cpu,%mem,etime,comm → numéro, propriétaire, CPU, mémoire, durée, nom
+      --sort=-%cpu → du plus gourmand au moins gourmand (remplacer par -%mem pour la mémoire)
+      head -20 → les 20 premiers
+    exemple: |
+        PID USER     %CPU %MEM     ELAPSED COMMAND
+       1432 tomcat8  87.3 31.2  3-02:11:40 java
+        981 mongodb  12.1  8.4  3-02:12:03 mongod
+    lecture: '**ELAPSED** = durée de vie du process (jours-heures:minutes:secondes). Un java à plus de 80 % de CPU depuis longtemps = Tomcat qui boucle : un redémarrage de Tomcat règle souvent le problème.'
+    voir: [relancer-l-interface-web]
+    mots: [cpu, ram, mémoire, lent, process]
 
   - id: process-tms
     titre: Process TMS
     machine: tms
     niveau: info
     commande: |-
-      ps aux | grep -i tms
-    but: Voir si les process TMS tournent.
+      ps aux | grep -i "[t]ms"
+    but: 'Liste les process dont la ligne contient « tms ». Le `[t]` évite que la commande grep se trouve elle-même.'
+    detail: |
+      ps aux → tous les process, avec utilisateur et ligne de commande complète
+      grep -i "[t]ms" → filtre « tms » sans tenir compte des majuscules ; l’astuce [t] exclut la ligne du grep lui-même
+    lecture: 'Une ou plusieurs lignes java avec « tms » dans leurs arguments = le TMS tourne. Aucune ligne = le TMS est arrêté.'
+    mots: [process, tms, ps]
 
   - id: process-java
     titre: Process Java
     machine: tms
     niveau: info
     commande: |-
-      ps aux | grep java
-    but: Voir si les process Java tournent.
+      pgrep -a java
+    but: 'Liste les programmes Java (Tomcat et le cœur TMS) avec leur ligne de commande.'
+    detail: |
+      pgrep → cherche des process par nom
+      -a → affiche aussi la ligne de commande complète
+    exemple: |
+      1432 /usr/lib/jvm/java-8-openjdk-amd64/bin/java -Djava.util.logging.config.file=/var/lib/tomcat8/conf/logging.properties … org.apache.catalina.startup.Bootstrap start
+    lecture: '« catalina » dans la ligne = Tomcat (interface web). Aucune ligne = aucun Java ne tourne : ni interface ni cœur TMS.'
+    mots: [java, process, tomcat]
 
   - id: tomcat-interface-web
     titre: Tomcat (interface web)
     machine: tms
     niveau: info
     commande: |-
-      systemctl status tomcat8
-    but: État du frontend TMS.
+      systemctl status tomcat8 --no-pager -l
+    but: 'État détaillé de Tomcat, le serveur qui affiche l’interface web du TMS, avec ses dernières lignes de log.'
+    detail: |
+      systemctl status → état d’un service géré par systemd
+      --no-pager → affiche tout d’un coup (sans devoir appuyer sur q)
+      -l → ne coupe pas les lignes trop longues
+    exemple: |
+      ● tomcat8.service - LSB: Start Tomcat.
+         Loaded: loaded (/etc/init.d/tomcat8; generated)
+         Active: active (running) since Wed 2026-10-15 03:14:02 CEST; 3 days ago
+    lecture: |
+      - **Active: active (running)** = démarré, avec la date de démarrage.
+      - **Active: failed** = planté : les lignes en dessous disent souvent pourquoi.
+      - **Active: inactive (dead)** = arrêté.
+    attendu: 'Active: active (running)'
+    voir: [relancer-l-interface-web, dernieres-lignes-tomcat]
+    mots: [tomcat, interface web, service]
 
   - id: mongodb
-    titre: MongoDB
+    titre: MongoDB (la base)
     machine: tms
     niveau: info
     commande: |-
-      systemctl status mongodb
-    but: La base de données tourne-t-elle ?
+      systemctl status mongodb --no-pager -l
+    but: 'État de MongoDB, la base de données du TMS (salles, plannings, KDM, CPL). Si elle est arrêtée, tout le TMS est aveugle.'
+    attendu: 'Active: active (running)'
+    lecture: 'Après une coupure de courant, Mongo peut refuser de démarrer (« failed ») à cause d’un fichier de verrou : voir « Réparer une base corrompue ».'
+    si_ko: 'Relancer avec « Relancer MongoDB ». S’il retombe en failed : `journalctl -u mongodb -n 50 --no-pager` puis procédure de réparation.'
+    voir: [relancer-mongodb, reparer-une-base-corrompue]
+    mots: [mongo, mongodb, base, service]
 
-  - id: c-ur-tms-monitoring
+  - id: coeur-tms-monitoring
     titre: Cœur TMS (monitoring)
     machine: tms
     niveau: info
     commande: |-
       /etc/init.d/cinemanext-monitoring-remote status
-    but: État du service ingest + supervision.
+    but: 'État du cœur du TMS : ingest, supervision des salles, remontées vers le monitoring.'
+    attendu: '« is running »'
+    lecture: '« is not running » alors que Tomcat tourne : l’interface s’affiche mais les salles ne se mettent plus à jour et les ingests ne partent pas.'
+    voir: [relancer-le-coeur-tms]
+    mots: [monitoring, cœur, ingest, supervision]
 
   - id: services-en-echec
     titre: Services en échec
     machine: lin
     niveau: info
     commande: |-
-      systemctl --failed
-    but: Tous les services en erreur d’un coup.
+      systemctl --failed --no-pager
+    but: 'Tous les services en erreur sur la machine, d’un coup.'
+    exemple: |
+        UNIT            LOAD   ACTIVE SUB    DESCRIPTION
+      ● mongodb.service loaded failed failed An object/document-oriented database
+
+      1 loaded units listed.
+    lecture: '« 0 loaded units listed » = aucun service planté. Sinon, chaque ligne est un service à examiner.'
+    attendu: '0 loaded units listed'
+    mots: [failed, échec, services]
 
   - id: services-actifs
     titre: Services actifs
     machine: lin
     niveau: info
     commande: |-
-      systemctl list-units --type=service --state=running
-    but: Liste de ce qui tourne.
+      systemctl list-units --type=service --state=running --no-pager
+    but: 'Liste de tout ce qui tourne sur la machine.'
+    mots: [services, running]
 
   - id: ports-en-ecoute
     titre: Ports en écoute
     machine: lin
     niveau: info
     commande: |-
-      ss -tlnp
-    but: Port + process (8080 Tomcat, 27017 Mongo).
+      sudo ss -tlnp
+    but: 'Quels programmes attendent des connexions, et sur quel port. Répond à « le service est démarré, mais répond-il ? ».'
+    detail: |
+      ss → affiche les connexions réseau (remplace netstat)
+      -t → seulement TCP
+      -l → seulement les ports en écoute (listen)
+      -n → numéros de port au lieu des noms
+      -p → nom du programme (nécessite sudo)
+    exemple: |
+      State   Recv-Q  Send-Q  Local Address:Port   Peer Address:Port  Process
+      LISTEN  0       100           0.0.0.0:8080        0.0.0.0:*      users:(("java",pid=1432,fd=50))
+      LISTEN  0       128         127.0.0.1:27017       0.0.0.0:*      users:(("mongod",pid=981,fd=11))
+      LISTEN  0       128           0.0.0.0:22          0.0.0.0:*      users:(("sshd",pid=702,fd=3))
+    lecture: |
+      - **8080** java = Tomcat (interface TMS). **27017** mongod = la base. **22** sshd = SSH.
+      - `127.0.0.1:PORT` = n’écoute que pour la machine elle-même ; `0.0.0.0:PORT` = écoute pour tout le réseau.
+    mots: [ports, écoute, ss, netstat, 8080, 27017]
 
   - id: ram
-    titre: RAM
+    titre: Mémoire (RAM)
     machine: lin
     niveau: info
     commande: |-
-      free -m
-    but: Mémoire utilisée et libre, en Mo.
+      free -h
+    but: 'Mémoire totale, utilisée et disponible.'
+    exemple: |
+                    total        used        free      shared  buff/cache   available
+      Mem:           7.7G        5.1G        210M         12M        2.4G        2.2G
+      Swap:          2.0G        1.6G        400M
+    lecture: |
+      - Regarde **available** (pas free) : c’est ce qui reste vraiment. Linux utilise la mémoire libre comme cache (`buff/cache`), c’est normal.
+      - **Swap** très utilisé (ici 1,6 G sur 2) = la machine manque de mémoire et ralentit.
+    si_ko: 'available proche de 0 et swap plein : trouver le process gourmand (« Top 20 CPU / RAM », trier par -%mem). Souvent Tomcat : un redémarrage le soulage.'
+    mots: [ram, mémoire, swap, free]
 
   - id: test-snmp
     titre: Test SNMP
     machine: lin
     niveau: info
     commande: |-
-      snmpwalk -c public -v2c {IP} 1
-    but: Vérifier que l’équipement répond en SNMP.
+      snmpwalk -c public -v2c -t 2 {IP} 1.3.6.1.2.1.1
+    but: 'Vérifie que l’équipement répond en SNMP (utilisé par la supervision) en lisant sa fiche système.'
+    detail: |
+      snmpwalk → parcourt les informations SNMP d’un équipement
+      -c public → communauté (mot de passe SNMP en lecture), « public » par défaut
+      -v2c → version du protocole
+      -t 2 → abandonne après 2 secondes
+      1.3.6.1.2.1.1 → la branche « system » : nom, description, uptime
+    exemple: |
+      SNMPv2-MIB::sysDescr.0 = STRING: Barco DP4K-32B
+      SNMPv2-MIB::sysUpTime.0 = Timeticks: (8640000) 1 day, 0:00:00.00
+    lecture: 'Des lignes sysDescr / sysUpTime = SNMP fonctionne. « Timeout: No Response » = pas de SNMP (équipement éteint, mauvaise communauté ou SNMP désactivé).'
+    mots: [snmp, supervision, monitoring]

@@ -1,7 +1,7 @@
 id: logs
 titre: Logs
 groupe: TMS & Linux
-intro: 'Diagnostic rapide : Tomcat, journal système, noyau.'
+intro: 'Les journaux racontent ce que les programmes ont fait et pourquoi ils ont échoué. Tomcat écrit dans catalina.out, le système dans le journal systemd (journalctl), le noyau (matériel, réseau) dans dmesg.'
 
 commandes:
   - id: dernieres-lignes-tomcat
@@ -9,109 +9,197 @@ commandes:
     machine: tms
     niveau: info
     commande: |-
-      tail -n 50 /var/log/tomcat8/catalina.out
-    but: Dernières erreurs TMS.
+      sudo tail -n 50 /var/log/tomcat8/catalina.out
+    but: 'Les 50 dernières lignes du journal de Tomcat (interface et services du TMS) : ce qui vient de se passer.'
+    detail: |
+      tail → affiche la fin d’un fichier
+      -n 50 → les 50 dernières lignes
+      catalina.out → journal principal de Tomcat
+    exemple: |
+      2026-10-18 14:30:02 INFO  [KdmService] Checking mailbox kdm@…
+      2026-10-18 14:30:04 ERROR [KdmService] Unable to connect to host 192.0.2.4
+      	at org.apache.commons.net.ftp.FTPClient.connect(FTPClient.java:…)
+    lecture: |
+      - Chaque ligne : **date heure**, **niveau** (INFO, WARN, ERROR), **[composant]** entre crochets, puis le message.
+      - Les lignes qui commencent par `at …` sont la « pile » d’une erreur Java : la première ligne au-dessus est le message utile.
+    voir: [erreurs-tomcat-sans-les-piles]
+    mots: [tomcat, catalina, logs, erreurs]
 
   - id: tomcat-en-direct
     titre: Tomcat en direct
     machine: tms
     niveau: info
     commande: |-
-      tail -f /var/log/tomcat8/catalina.out
-    but: Suivre pendant qu’on reproduit le problème (Ctrl+C pour sortir).
+      sudo tail -f /var/log/tomcat8/catalina.out
+    but: 'Affiche les nouvelles lignes au fur et à mesure. Lance-le, reproduis le problème dans l’interface, et regarde ce qui s’écrit.'
+    detail: |
+      -f → follow : continue d’afficher les lignes ajoutées
+    lecture: 'Ctrl+C pour arrêter (cela n’arrête pas Tomcat, seulement l’affichage).'
+    mots: [tomcat, direct, suivre, tail -f]
 
   - id: tomcat-filtre-sur-un-equipement
     titre: Tomcat filtré sur un équipement
     machine: tms
     niveau: info
     commande: |-
-      tail -f /var/log/tomcat8/catalina.out | grep -i "{IP}"
-    but: Ne voir que les lignes qui concernent cet équipement.
+      sudo tail -f /var/log/tomcat8/catalina.out | grep --line-buffered -wF "{IP}"
+    but: 'Ne voir passer que les lignes qui parlent de cet équipement.'
+    detail: |
+      grep -F → cherche le texte tel quel (un point est un point, pas « n’importe quel caractère »)
+      -w → mot entier : 192.0.2.4 ne remonte pas 192.0.2.41
+      --line-buffered → affiche chaque ligne tout de suite au lieu d’attendre
+    lecture: 'Rien ne s’affiche tant que le TMS ne parle pas de cette IP. Ctrl+C pour arrêter.'
+    mots: [tomcat, équipement, ip, filtre]
 
   - id: erreurs-tomcat-sans-les-piles
     titre: Erreurs Tomcat sans les piles
     machine: tms
     niveau: info
     commande: |-
-      grep -iE "error|exception" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -40
-    but: Les erreurs sans les lignes « at … » des piles Java.
+      sudo grep -iE "error|exception" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -40
+    but: 'Les 40 dernières erreurs, sans les dizaines de lignes « at … » des piles Java : on voit enfin les messages.'
+    detail: |
+      grep -iE "error|exception" → lignes contenant error OU exception, majuscules ou non
+      grep -v "^\s*at " → retire (-v) les lignes de pile qui commencent par « at »
+      tail -40 → les 40 plus récentes
+    lecture: 'Cherche une erreur qui se répète : même composant, même message. C’est le plus souvent la cause. Note l’heure de la première occurrence pour le ticket.'
+    voir: [pile-complete-d-une-erreur, depuis-quand-l-erreur-dure]
+    mots: [erreurs, exception, tomcat]
 
   - id: pile-complete-d-une-erreur
     titre: Pile complète d’une erreur
     machine: tms
     niveau: info
     commande: |-
-      grep -m1 -A15 "Unable to connect" /var/log/tomcat8/catalina.out
-    but: Remplacer le texte cherché. La pile dit quel composant échoue (FTP, IMAP, Mongo…).
+      sudo grep -m1 -A15 "Unable to connect" /var/log/tomcat8/catalina.out
+    but: 'La première occurrence d’une erreur avec ses 15 lignes suivantes. Remplace le texte cherché par le message qui t’intéresse.'
+    detail: |
+      -m1 → s’arrête à la première ligne trouvée
+      -A15 → affiche aussi les 15 lignes d’après (After)
+    lecture: 'Dans la pile, cherche les noms de classes : `ftp` = dépôt FTP (LMS), `imap`/`mail` = boîte KDM, `mongo` = base. Ça dit quel composant échoue.'
+    mots: [pile, stacktrace, erreur]
 
   - id: erreurs-de-licence
     titre: Erreurs de licence
     machine: tms
     niveau: info
     commande: |-
-      grep -i "license" /var/log/tomcat8/catalina.out
-    but: Licence / hardware ID.
+      sudo grep -i "license" /var/log/tomcat8/catalina.out | tail -20
+    but: 'Problèmes de licence TMS ou d’identifiant matériel (hardware ID), les plus récents en dernier.'
+    si_ko: 'Licence expirée ou hardware ID différent (carte mère changée) : ticket au N2 avec le message exact.'
+    mots: [licence, license, hardware id]
 
   - id: fichiers-de-logs-tomcat
     titre: Fichiers de logs Tomcat
     machine: tms
     niveau: info
     commande: |-
-      ls -lt /var/log/tomcat8/ | head
-    but: Les plus récents en premier.
+      sudo ls -lht /var/log/tomcat8/ | head
+    but: 'Les fichiers de logs Tomcat, le plus récent en premier, avec leur taille. Les anciens sont compressés (.gz).'
+    lecture: 'Un catalina.out de plusieurs Go = log qui n’est plus tourné : à signaler, il peut remplir le disque.'
+    mots: [logs, tomcat, fichiers]
 
   - id: historique-d-un-equipement
-    titre: Historique d’un équipement
+    titre: Historique d’un équipement (journal système)
     machine: lin
     niveau: info
     commande: |-
-      sudo journalctl | grep "{IP}"
-    but: Tout ce que le journal système a vu sur cette IP.
+      sudo journalctl --no-pager | grep -wF "{IP}" | tail -50
+    but: 'Les 50 dernières lignes du journal système qui mentionnent cette IP.'
+    detail: |
+      journalctl → lit le journal de systemd (tous les services)
+      --no-pager → envoie tout à grep sans s’arrêter page par page
+      grep -wF → l’IP exacte, mot entier
+    mots: [journal, historique, équipement, ip]
 
   - id: historique-logs-archives-inclus
     titre: Historique, logs archivés inclus
     machine: lin
     niveau: info
     commande: |-
-      zgrep "{IP}" /var/log/syslog*
-    but: Cherche aussi dans les syslog compressés des jours précédents.
+      sudo zgrep -hwF "{IP}" /var/log/syslog* | tail -50
+    but: 'Cherche aussi dans les syslog des jours précédents, même compressés (.gz).'
+    detail: |
+      zgrep → grep qui lit aussi les fichiers compressés
+      -h → n’affiche pas le nom du fichier devant chaque ligne
+      /var/log/syslog* → syslog, syslog.1, syslog.2.gz…
+    lecture: 'Les fichiers ne sont pas lus dans l’ordre chronologique : regarde les dates en début de ligne.'
+    mots: [syslog, archives, historique]
+
+  - id: suivre-le-journal-systeme
+    titre: Suivre le journal système en direct
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo journalctl -f
+    but: 'Toutes les nouvelles lignes du journal, tous services confondus, au fil de l’eau. Pratique pendant un redémarrage de service ou un rebranchement de câble.'
+    lecture: 'Ctrl+C pour arrêter. Un câble rebranché apparaît par exemple sous la forme « eth1: Link is Up - 1Gbps/Full ».'
+    mots: [journal, direct, suivre]
+    maj: 2026-10-18
 
   - id: logs-d-un-service-sur-1-h
     titre: Logs d’un service sur 1 h
     machine: lin
     niveau: info
     commande: |-
-      journalctl -u tomcat8 --since "1 hour ago"
-    but: Remplacer tomcat8 par le service voulu.
+      sudo journalctl -u {SVC} --since "1 hour ago" --no-pager
+    but: 'Tout ce qu’un service a écrit dans la dernière heure. Mets le nom du service dans la variable SVC (tomcat8, mongodb, ssh…).'
+    detail: |
+      -u {SVC} → seulement ce service (unit)
+      --since "1 hour ago" → depuis une heure (aussi : "today", "2026-10-18 14:00")
+    lecture: 'Les lignes « Started » / « Stopped » montrent les redémarrages ; les lignes en rouge ou « error » donnent la cause d’un arrêt.'
+    mots: [journal, service, journalctl]
 
   - id: liste-des-demarrages
     titre: Liste des démarrages
     machine: lin
     niveau: info
     commande: |-
-      journalctl --list-boots
-    but: Dates de chaque démarrage connu du journal.
+      journalctl --list-boots --no-pager | tail
+    but: 'Les derniers démarrages connus du journal, avec leurs dates. Le numéro de gauche sert à lire le journal d’un démarrage précis (0 = actuel, -1 = précédent).'
+    exemple: |
+       -2 5f1c… Mon 2026-10-06 09:40:12 CEST—Wed 2026-10-15 03:11:58 CEST
+       -1 a83e… Wed 2026-10-15 03:12:40 CEST—Wed 2026-10-15 03:12:55 CEST
+        0 c41d… Wed 2026-10-15 03:14:01 CEST—Sat 2026-10-18 14:32:07 CEST
+    lecture: 'Plusieurs démarrages à quelques secondes d’intervalle = la machine a redémarré en boucle (courant instable, onduleur).'
+    mots: [boots, démarrages, reboot]
 
   - id: erreurs-avant-le-dernier-reboot
     titre: Erreurs avant le dernier reboot
     machine: lin
     niveau: info
     commande: |-
-      journalctl -b -1 -p err | tail -50
-    but: Ce qui s’est mal passé juste avant la coupure ou le redémarrage.
+      sudo journalctl -b -1 -p err --no-pager | tail -50
+    but: 'Les erreurs enregistrées pendant le démarrage précédent, juste avant la coupure ou le redémarrage.'
+    detail: |
+      -b -1 → le démarrage précédent (-1)
+      -p err → seulement les messages de niveau erreur et plus grave
+    lecture: 'Les dernières lignes sont les plus proches de l’arrêt. Rien d’anormal puis coupure nette = plutôt une coupure électrique qu’un plantage.'
+    si_ko: '« Specifying boot ID has no effect, no persistent journal was found » : le journal n’est pas conservé entre deux démarrages sur cette machine. Utiliser `zgrep` dans /var/log/syslog*.'
+    mots: [reboot, coupure, erreurs, plantage]
 
   - id: journal-du-noyau
     titre: Journal du noyau
     machine: lin
     niveau: info
     commande: |-
-      dmesg -T
-    but: Événements matériels bruts avec l’heure réelle.
+      sudo dmesg -T | tail -50
+    but: 'Les événements matériels bruts (disques, cartes réseau, USB) avec l’heure réelle.'
+    detail: |
+      dmesg → messages du noyau Linux
+      -T → heure lisible au lieu de secondes depuis le démarrage
+    lecture: 'Une clé USB branchée apparaît comme « sd 6:0:0:0: [sdc] Attached SCSI removable disk ». Des « I/O error » sur un disque = disque qui lâche.'
+    mots: [noyau, kernel, dmesg, matériel]
 
   - id: noyau-erreurs-et-liens-reseau
     titre: 'Noyau : erreurs et liens réseau'
     machine: lin
     niveau: info
     commande: |-
-      dmesg -T | grep -iE "error|fail|link|bond"
-    but: Erreurs disque, carte réseau qui tombe, bond qui bascule.
+      sudo dmesg -T | grep -iE "error|fail|link|bond" | tail -40
+    but: 'Erreurs disque, carte réseau qui perd son lien, bond qui bascule.'
+    exemple: |
+      [Sat Oct 18 09:12:44 2026] e1000e: eth1 NIC Link is Down
+      [Sat Oct 18 09:12:47 2026] e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex
+    lecture: '« Link is Down » puis « Up » quelques secondes après = câble ou port de switch qui décroche. Si ça se répète, changer le câble ou le port.'
+    mots: [réseau, lien, link down, bond, erreurs]

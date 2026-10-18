@@ -1,39 +1,66 @@
 id: restart
 titre: Redémarrage
 groupe: TMS & Linux
-intro: À faire en priorité en cas de bug TMS.
+intro: 'Relancer un service du TMS règle une bonne partie des bugs. Dans l’ordre : le cœur TMS, puis l’interface web, puis la base. Jamais pendant une séance sans prévenir le client.'
 
 commandes:
-  - id: relancer-le-c-ur-tms
+  - id: relancer-le-coeur-tms
     titre: Relancer le cœur TMS
     machine: tms
     niveau: action
     commande: |-
-      /etc/init.d/cinemanext-monitoring-remote restart
-    but: Relance ingest + supervision. À faire en priorité en cas de bug.
+      sudo /etc/init.d/cinemanext-monitoring-remote restart
+    but: 'Relance l’ingest et la supervision. À faire en premier en cas de bug TMS : salles qui ne se mettent plus à jour, ingest bloqué.'
+    lecture: 'Le script affiche l’arrêt puis le démarrage. Contrôle ensuite avec « Cœur TMS (monitoring) ».'
+    attendu: '« is running » au contrôle, salles à jour dans l’interface après une à deux minutes'
+    voir: [coeur-tms-monitoring]
+    mots: [redémarrer, restart, ingest, supervision]
 
   - id: relancer-l-interface-web
-    titre: Relancer l’interface web
+    titre: Relancer l’interface web (Tomcat)
     machine: tms
     niveau: action
     commande: |-
-      /etc/init.d/tomcat8 restart
-    but: Interface web TMS figée ou inaccessible.
+      sudo systemctl restart tomcat8 ; sleep 20 ; systemctl is-active tomcat8
+    but: 'Interface web du TMS figée, lente ou inaccessible. Tomcat met 20 à 60 secondes à redevenir disponible.'
+    detail: |
+      systemctl restart tomcat8 → arrête puis redémarre Tomcat
+      sleep 20 → attend 20 secondes
+      systemctl is-active tomcat8 → vérifie qu’il est bien reparti
+    attendu: 'active, puis l’interface répond à nouveau (rafraîchir la page du navigateur)'
+    si_ko: 'failed : lire `tail -n 80 /var/log/tomcat8/catalina.out`. Une erreur de connexion à Mongo = relancer Mongo d’abord.'
+    attention: 'Les utilisateurs connectés à l’interface sont déconnectés.'
+    mots: [tomcat, redémarrer, interface figée]
 
   - id: relancer-mongodb
     titre: Relancer MongoDB
     machine: tms
     niveau: action
     commande: |-
-      systemctl restart mongodb
-    but: Base qui ne répond plus.
-    attention: Relancer ensuite le cœur TMS et Tomcat.
+      sudo systemctl restart mongodb ; sleep 5 ; systemctl is-active mongodb
+    but: 'Base qui ne répond plus. Tomcat et le cœur TMS dépendent de Mongo : il faut les relancer ensuite.'
+    attendu: 'active'
+    si_ko: 'failed juste après le redémarrage : la base est probablement abîmée (coupure de courant). Voir « Réparer une base corrompue ».'
+    attention: 'Relancer ensuite le cœur TMS et Tomcat (ou faire directement la « Relance complète TMS »).'
+    voir: [reparer-une-base-corrompue, relance-complete-tms]
+    mots: [mongo, redémarrer, base]
 
   - id: relance-complete-tms
     titre: Relance complète TMS
     machine: tms
     niveau: danger
     commande: |-
-      sudo service tomcat8 stop ; sudo /etc/init.d/cinemanext-monitoring-remote stop ; sudo service mongodb stop ; sudo sleep 10 ; sudo service mongodb start ; sudo /etc/init.d/cinemanext-monitoring-remote start ;sudo service tomcat8 start
-    but: Arrête les services TMS puis les relance dans l’ordre.
-    attention: 'Coupe le TMS environ une minute : pas pendant une séance.'
+      sudo service tomcat8 stop ; sudo /etc/init.d/cinemanext-monitoring-remote stop ; sudo service mongodb stop ; sleep 10 ; sudo service mongodb start ; sleep 5 ; sudo /etc/init.d/cinemanext-monitoring-remote start ; sudo service tomcat8 start
+    but: 'Arrête les trois services dans le bon ordre (interface, cœur, base) puis les relance dans l’ordre inverse (base, cœur, interface).'
+    detail: |
+      stop tomcat8 → coupe l’interface web
+      stop cinemanext-monitoring-remote → coupe le cœur TMS
+      stop mongodb → coupe la base quand plus personne ne l’utilise
+      sleep 10 → laisse le temps à Mongo de fermer proprement ses fichiers
+      start mongodb → la base d’abord
+      start cinemanext… puis start tomcat8 → ceux qui en dépendent ensuite
+    lecture: 'Compte deux minutes au total. Contrôle avec « État des trois services TMS d’un coup ».'
+    attendu: 'active, active, « is running »'
+    attention: 'Coupe le TMS environ une minute : jamais pendant une séance sans accord du client.'
+    voir: [etat-des-services-tms]
+    mots: [redémarrer, tout, restart, tms ko]

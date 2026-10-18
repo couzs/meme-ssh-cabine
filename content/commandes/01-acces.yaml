@@ -1,7 +1,7 @@
 id: acces
 titre: Accès / base
 groupe: TMS & Linux
-intro: 'Premier coup d’œil sur la machine : heure, disque, IP, reboots.'
+intro: 'Premier coup d’œil sur une machine Linux (TMS, ORC, LMS) : qui suis-je, quelle heure, quel disque, quelles IP, depuis quand elle tourne. À lancer en arrivant, avant de toucher à quoi que ce soit.'
 
 commandes:
   - id: passer-root
@@ -10,7 +10,39 @@ commandes:
     niveau: info
     commande: |-
       sudo -i
-    but: Passer en root pour tout faire sans restriction.
+    but: 'Ouvre un shell administrateur (root). Beaucoup de fichiers (logs, contenus, configuration) ne sont lisibles qu’en root.'
+    detail: |
+      sudo → exécute en tant qu’administrateur ; demande TON mot de passe (pas celui de root)
+      -i → ouvre un shell de connexion complet (environnement et dossier de root)
+    exemple: |
+      sysadm@frmXXXXtms0000:~$ sudo -i
+      [sudo] password for sysadm:
+      root@frmXXXXtms0000:~#
+    lecture: 'L’invite se termine par `#` au lieu de `$` : tu es root. `exit` (ou Ctrl+D) pour revenir à ton utilisateur.'
+    si_ko: |
+      - « sysadm is not in the sudoers file » : ce compte n’a pas les droits, utiliser le compte prévu ou demander au N3.
+      - Mot de passe refusé deux fois : arrêter et demander le bon (risque de blocage).
+    attention: 'En root, rien ne t’empêche de casser la machine : relis chaque commande « modifie » ou « risque » avant de la coller.'
+    mots: [root, admin, sudo, droits]
+
+  - id: qui-suis-je
+    titre: Qui suis-je, où suis-je ?
+    machine: lin
+    niveau: info
+    commande: |-
+      whoami ; hostname ; pwd
+    but: 'Trois réponses en une ligne : utilisateur courant, nom de la machine, dossier courant. Évite de taper une commande sur la mauvaise machine quand plusieurs sessions sont ouvertes.'
+    detail: |
+      whoami → utilisateur courant (root, sysadm…)
+      hostname → nom de la machine
+      pwd → dossier dans lequel tu te trouves
+      ; → enchaîne les commandes, même si l’une échoue
+    exemple: |
+      root
+      frmXXXXorc0001
+      /root
+    lecture: 'Le nom de machine se lit ainsi : `frm` + code du site + rôle (`tms`, `orc`, `tcs`, `lms`) + numéro.'
+    mots: [whoami, hostname, machine, session]
 
   - id: heure-systeme
     titre: Heure système
@@ -18,7 +50,12 @@ commandes:
     niveau: info
     commande: |-
       date
-    but: 'Vérifier l’heure : très souvent cause de bugs TMS / KDM / licence.'
+    but: 'Affiche la date et l’heure de la machine. Une heure fausse provoque des KDM « pas encore valides » ou « expirées », des licences refusées et des plannings décalés.'
+    exemple: |
+      Sat Oct 18 14:32:07 CEST 2026
+    lecture: 'Compare avec ton téléphone : plus d’une minute d’écart = problème de synchronisation (voir « Heure, fuseau et NTP »). Vérifie aussi le fuseau (CEST l’été, CET l’hiver en France).'
+    voir: [heure-fuseau-et-ntp]
+    mots: [heure, date, horloge, kdm expirée]
 
   - id: heure-fuseau-et-ntp
     titre: Heure, fuseau et NTP
@@ -26,16 +63,40 @@ commandes:
     niveau: info
     commande: |-
       timedatectl
-    but: Fuseau horaire et synchro NTP.
-    attendu: '« System clock synchronized: yes »'
+    but: 'Heure locale, heure universelle, fuseau horaire et état de la synchronisation NTP en un seul écran.'
+    exemple: |
+                     Local time: Sat 2026-10-18 14:32:07 CEST
+                 Universal time: Sat 2026-10-18 12:32:07 UTC
+                       RTC time: Sat 2026-10-18 12:32:07
+                      Time zone: Europe/Paris (CEST, +0200)
+      System clock synchronized: yes
+                    NTP service: active
+                RTC in local TZ: no
+    lecture: |
+      - **Time zone** : doit être le fuseau du cinéma (Europe/Paris en France métropolitaine).
+      - **System clock synchronized: yes** : l’heure est recalée automatiquement.
+      - **NTP service: active** : le service de synchronisation tourne.
+      - Sur les Ubuntu anciens, les lignes s’appellent « NTP synchronized » et « Network time on ».
+    attendu: '« System clock synchronized: yes » et le bon fuseau'
+    si_ko: |
+      - `synchronized: no` : la machine ne joint pas son serveur NTP (souvent l’ORC). Vérifier le réseau, puis `timedatectl timesync-status` sur les Ubuntu récents.
+      - Mauvais fuseau : voir « Changer le fuseau ».
+    voir: [changer-le-fuseau]
+    mots: [ntp, fuseau, timezone, heure]
 
   - id: changer-le-fuseau
     titre: Changer le fuseau
     machine: lin
     niveau: action
     commande: |-
-      dpkg-reconfigure tzdata
-    but: Configuration du fuseau horaire TMS/ORC.
+      sudo dpkg-reconfigure tzdata
+    but: 'Menu interactif pour choisir le fuseau horaire (zone géographique puis ville).'
+    detail: |
+      dpkg-reconfigure → relance l’assistant de configuration d’un paquet installé
+      tzdata → le paquet qui contient les fuseaux horaires
+    lecture: 'Flèches pour choisir, Entrée pour valider. À la fin, l’heure locale et l’heure universelle s’affichent : vérifie-les.'
+    attention: 'Changer le fuseau décale les plannings et les séances : à faire hors exploitation, et le noter dans le ticket.'
+    mots: [fuseau, timezone, tzdata]
 
   - id: espace-disque
     titre: Espace disque
@@ -43,7 +104,23 @@ commandes:
     niveau: info
     commande: |-
       df -h
-    but: Disque plein = cause fréquente de TMS KO. Sur le TCS, regarder la ligne /opt/lms-ymagis.
+    but: 'Occupation de chaque disque monté. Un disque plein est l’une des premières causes de TMS bloqué, de KDM non déposées ou d’ingest en échec.'
+    detail: |
+      df → disk free : espace des systèmes de fichiers montés
+      -h → tailles lisibles (K, M, G, T) au lieu de blocs
+    exemple: |
+      Filesystem      Size  Used Avail Use% Mounted on
+      /dev/sda2        92G   41G   47G  47% /
+      tmpfs           3.9G     0  3.9G   0% /dev/shm
+      /dev/sdb1        18T   17T  1.0T  95% /opt/lms-ymagis
+    lecture: |
+      - **Mounted on** : où le disque est accessible. `/` = système ; `/opt/lms-ymagis` = contenus sur le TCS / LMS.
+      - **Use%** : le chiffre à regarder. Au-delà de 90 % sur `/`, ça devient urgent ; 100 % = panne.
+      - Ignore les lignes `tmpfs`, `udev`, `overlay` : ce sont des disques en mémoire.
+    attendu: 'Moins de 90 % sur / et sur /opt/lms-ymagis'
+    si_ko: 'Ligne à 100 % sur `/` : procédure « Disque système plein ». Sur `/opt/lms-ymagis` : procédure « LMS plein ».'
+    voir: [disk-sys, lms-plein, inodes]
+    mots: [disque, plein, espace, stockage, df]
 
   - id: inodes
     titre: Inodes
@@ -51,23 +128,76 @@ commandes:
     niveau: info
     commande: |-
       df -i
-    but: 'Disque « plein » alors que df -h montre de la place : plus d’inodes (trop de petits fichiers).'
+    but: 'Nombre de fichiers possibles sur chaque disque. Un disque peut refuser d’écrire alors que `df -h` montre de la place : il n’a plus d’« inodes » (trop de petits fichiers).'
+    detail: |
+      -i → compte les inodes (fiches de fichiers) au lieu des octets
+    exemple: |
+      Filesystem      Inodes  IUsed   IFree IUse% Mounted on
+      /dev/sda2      6111232 6111232      0  100% /
+    lecture: '**IUse%** à 100 % = plus aucun fichier ne peut être créé, même vide. Cherche alors le dossier qui contient des milliers de petits fichiers (souvent des logs ou des sessions).'
+    si_ko: 'Trouver le coupable : `sudo du --inodes -x / 2>/dev/null | sort -n | tail -15` (Ubuntu 18.04 et plus).'
+    mots: [inodes, disque plein, no space left]
 
   - id: ce-qui-remplit-les-logs
     titre: Ce qui remplit les logs
     machine: lin
     niveau: info
     commande: |-
-      du -sh /var/log/* | sort -h | tail
-    but: Les 10 plus gros dossiers de logs.
+      sudo du -sh /var/log/* 2>/dev/null | sort -h | tail
+    but: 'Les 10 plus gros fichiers ou dossiers de journaux, le plus gros en dernier.'
+    detail: |
+      du -sh → taille totale (s = summary) lisible (h) de chaque élément
+      /var/log/* → chaque fichier et dossier de journaux
+      2>/dev/null → masque les messages d’erreur (droits, fichiers qui disparaissent)
+      | sort -h → trie par taille en comprenant K, M, G
+      | tail → garde les 10 dernières lignes = les 10 plus gros
+    exemple: |
+      120M	/var/log/syslog.1
+      1.1G	/var/log/tomcat8
+      3.8G	/var/log/journal
+    lecture: 'La dernière ligne est la plus grosse. `journal` = journal systemd (se purge avec `journalctl --vacuum-size`) ; `tomcat8` = logs de l’interface TMS.'
+    voir: [purger-les-vieux-journaux, disk-sys]
+    mots: [logs, journaux, disque plein, du]
+
+  - id: plus-gros-fichiers
+    titre: Les plus gros fichiers d’un disque
+    machine: lin
+    niveau: info
+    commande: |-
+      sudo find / -xdev -type f -size +500M -exec ls -lh {} + 2>/dev/null | awk '{print $5, $9}' | sort -h | tail -20
+    but: 'Liste les fichiers de plus de 500 Mo sur le disque système, pour comprendre ce qui le remplit (sauvegarde oubliée, capture réseau, vieux dump).'
+    detail: |
+      find / → cherche à partir de la racine
+      -xdev → reste sur ce disque (n’entre pas dans /opt/lms-ymagis ni les clés USB)
+      -type f -size +500M → seulement les fichiers de plus de 500 Mo
+      -exec ls -lh {} + → affiche leurs détails
+      awk '{print $5, $9}' → garde la taille et le chemin
+      sort -h | tail -20 → les 20 plus gros, le plus gros en dernier
+    exemple: |
+      612M /var/lib/mongodb/ytms.3
+      1.9G /root/backup_ytms_2025-03-02_1012.tar
+      4.2G /tmp/capture_1432.pcap
+    lecture: 'Repère les fichiers qui n’ont rien à faire là : `.pcap` dans /tmp, vieilles sauvegardes dans /root. Ne supprime jamais un fichier de `/var/lib/mongodb` : c’est la base du TMS.'
+    attention: 'Ce n’est qu’une liste. Avant de supprimer quoi que ce soit, demande-toi ce qu’est le fichier et note-le dans le ticket.'
+    mots: [gros fichiers, disque plein, find, nettoyage]
 
   - id: identifier-la-machine
     titre: Identifier la machine
     machine: lin
     niveau: info
     commande: |-
-      hostname ; cat /etc/os-release
-    but: Nom (frmXXXXtms0000, orc0001, tcs0001) et version d’Ubuntu.
+      hostname ; grep PRETTY_NAME /etc/os-release ; uname -r
+    but: 'Nom de la machine, version d’Ubuntu ou de Debian, version du noyau. Utile pour un ticket N2/N3 et pour savoir quelles commandes existent.'
+    detail: |
+      hostname → nom de la machine (frmXXXXtms0000, orc0001, tcs0001)
+      grep PRETTY_NAME /etc/os-release → nom lisible du système
+      uname -r → version du noyau Linux
+    exemple: |
+      frmXXXXtms0000
+      PRETTY_NAME="Ubuntu 16.04.7 LTS"
+      4.4.0-210-generic
+    lecture: 'Ubuntu 16.04 ou plus ancien : certaines commandes récentes (`resolvectl`, `du --inodes`) n’existent pas, utiliser les variantes indiquées dans les fiches.'
+    mots: [version, ubuntu, debian, noyau, os]
 
   - id: ip-des-interfaces
     titre: IP des interfaces
@@ -75,23 +205,72 @@ commandes:
     niveau: info
     commande: |-
       ip -br a
-    but: Une ligne par interface. Sur l’ORC, voir « Repères ORC » pour le rôle de chaque bridge.
+    but: 'Une ligne par carte réseau : nom, état, adresses IP. Le moyen le plus rapide de savoir sur quels réseaux la machine est branchée.'
+    detail: |
+      ip → l’outil réseau moderne de Linux (remplace ifconfig)
+      -br → brief : une ligne par interface
+      a → address : affiche les adresses
+    exemple: |
+      lo               UNKNOWN        127.0.0.1/8 ::1/128
+      eth0             UP             192.0.2.10/24
+      br2              UP             192.0.2.254/24
+      bond0            UP
+      br3              UP             198.51.100.254/24
+    lecture: |
+      - **UP** = carte active ; **DOWN** = pas de lien (câble, port de switch) ou carte désactivée.
+      - `/24` = masque 255.255.255.0 : la machine joint directement les IP qui ont les mêmes trois premiers nombres.
+      - `lo` (127.0.0.1) est l’interface interne : à ignorer.
+      - Sur l’ORC, `br0`…`br4` sont des bridges : voir « Repères ORC » pour le rôle de chacun.
+    si_ko: 'Interface attendue en DOWN : vérifier le lien physique avec « Lien d’un port physique » (ORC) ou demander au client de regarder les voyants.'
+    voir: [passerelle, lien-d-un-port-physique]
+    mots: [ip, interface, carte réseau, ifconfig, adresse]
 
   - id: passerelle
-    titre: Passerelle
+    titre: Passerelle et routes
     machine: lin
     niveau: info
     commande: |-
       ip route
-    but: Sur un TMS, la passerelle est normalement l’ORC (.254).
+    but: 'Table de routage : par où la machine envoie ses paquets. La ligne « default » est la passerelle (la sortie vers les autres réseaux).'
+    exemple: |
+      default via 192.0.2.254 dev eth0 onlink
+      192.0.2.0/24 dev eth0 proto kernel scope link src 192.0.2.10
+    lecture: |
+      - **default via X** : X est la passerelle. Sur un TMS, c’est normalement l’ORC (adresse en .254).
+      - **192.0.2.0/24 dev eth0** : ce réseau est joint directement par eth0, sans passerelle.
+    si_ko: 'Pas de ligne `default` : la machine ne sort pas de son réseau (pas de supervision, pas d’Internet). Ne pas l’ajouter à la main sans le N3.'
+    voir: [joindre-l-orc, chemin-d-une-ip]
+    mots: [route, passerelle, gateway, default]
+
+  - id: chemin-d-une-ip
+    titre: Par où passe une IP ?
+    machine: lin
+    niveau: info
+    commande: |-
+      ip route get {IP}
+    but: 'Indique quelle interface et quelle passerelle la machine utiliserait pour joindre une IP précise. Répond à « pourquoi ce ping part dans le mauvais réseau ? ».'
+    exemple: |
+      192.0.2.41 dev br2 src 192.0.2.254 uid 0
+          cache
+    lecture: '**dev** = carte utilisée, **src** = IP source utilisée, **via** (s’il apparaît) = passerelle traversée. Pas de `via` = l’IP est dans un réseau directement branché.'
+    mots: [route, interface, chemin]
 
   - id: uptime-et-charge
     titre: Uptime et charge
     machine: lin
     niveau: info
     commande: |-
-      uptime
-    but: Temps depuis le dernier démarrage, utilisateurs connectés, charge moyenne.
+      uptime ; nproc
+    but: 'Depuis combien de temps la machine tourne, combien de sessions sont ouvertes, quelle est sa charge, et combien elle a de cœurs pour comparer.'
+    exemple: |
+       14:32:07 up 3 days,  2:11,  2 users,  load average: 0.42, 0.37, 0.30
+      4
+    lecture: |
+      - **up 3 days** : dernier démarrage il y a 3 jours. Un uptime de quelques minutes alors que personne n’a redémarré = coupure électrique ou plantage.
+      - **load average** : charge sur 1, 5 et 15 minutes. Tant qu’elle reste sous le nombre de cœurs (la 2e ligne, ici 4), la machine n’est pas saturée.
+    si_ko: 'Charge très au-dessus du nombre de cœurs : voir « Top 20 CPU / RAM » pour trouver le process qui consomme.'
+    voir: [historique-des-reboots, top-20-cpu-ram]
+    mots: [uptime, charge, load, redémarrage, cœurs]
 
   - id: qui-est-connecte
     titre: Qui est connecté
@@ -99,31 +278,67 @@ commandes:
     niveau: info
     commande: |-
       w
-    but: Voir si un autre technicien est en SSH en même temps.
+    but: 'Liste les sessions ouvertes : utile pour savoir si un collègue travaille déjà sur la machine avant de redémarrer un service.'
+    exemple: |
+       14:32:07 up 3 days,  2:11,  2 users,  load average: 0.42, 0.37, 0.30
+      USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+      sysadm   pts/0    192.0.2.200      14:20    0.00s  0.05s  0.00s w
+      sysadm   pts/1    192.0.2.201      13:02   12:41   0.10s  0.10s -bash
+    lecture: '**FROM** = IP d’où vient la session, **IDLE** = temps depuis la dernière frappe, **WHAT** = commande en cours. Une deuxième session active = prévenir avant de redémarrer quoi que ce soit.'
+    mots: [sessions, utilisateurs, ssh, collègue]
 
   - id: historique-des-reboots
     titre: Historique des reboots
     machine: lin
     niveau: info
     commande: |-
-      last -x | head -20
-    but: Une coupure électrique apparaît sans « shutdown » propre.
+      last -x | grep -E "reboot|shutdown" | head -20
+    but: 'Les derniers démarrages et arrêts de la machine. Une coupure électrique se voit à un « reboot » sans « shutdown » juste avant.'
+    detail: |
+      last → historique des connexions et démarrages
+      -x → ajoute les arrêts et changements de niveau
+      grep -E "reboot|shutdown" → ne garde que les démarrages et arrêts
+      head -20 → les 20 plus récents
+    exemple: |
+      reboot   system boot  4.4.0-210-generic Wed Oct 15 03:12   still running
+      reboot   system boot  4.4.0-210-generic Mon Oct  6 09:40 - 03:12 (8+17:32)
+      shutdown system down  4.4.0-210-generic Mon Oct  6 09:38 - 09:40  (00:01)
+    lecture: 'Lis de haut en bas (le plus récent en premier). Ici, le reboot du 15 octobre à 03:12 n’est précédé d’aucun shutdown : arrêt brutal (coupure de courant, plantage). Celui du 6 octobre est propre.'
+    si_ko: 'Arrêt brutal : vérifier ce qui s’est passé juste avant avec « Erreurs avant le dernier reboot » et l’état de Mongo (base parfois corrompue après une coupure).'
+    voir: [erreurs-avant-le-dernier-reboot, mongodb]
+    mots: [reboot, redémarrage, coupure, courant]
 
   - id: disques-et-partitions
     titre: Disques et partitions
     machine: lin
     niveau: info
     commande: |-
-      lsblk
-    but: Disques, tailles et points de montage.
+      lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT
+    but: 'Arbre des disques physiques, de leurs partitions et de l’endroit où elles sont montées. Permet de repérer une clé USB ou un disque non monté.'
+    exemple: |
+      NAME     SIZE TYPE FSTYPE MOUNTPOINT
+      sda      100G disk
+      ├─sda1     1G part ext4   /boot
+      └─sda2    99G part ext4   /
+      sdb       18T disk
+      └─sdb1    18T part xfs    /opt/lms-ymagis
+      sdc     58.6G disk
+      └─sdc1  58.6G part ntfs
+    lecture: 'Une partition sans MOUNTPOINT n’est pas accessible (ici la clé `sdc1` en NTFS). `sda` = premier disque, `sdb` = deuxième, etc.'
+    mots: [disque, partition, usb, montage, lsblk]
 
   - id: modele-du-serveur
     titre: Modèle du serveur
     machine: lin
     niveau: info
     commande: |-
-      dmidecode -t system
-    but: Fabricant, modèle, numéro de série.
+      sudo dmidecode -t system | grep -E "Manufacturer|Product|Serial"
+    but: 'Fabricant, modèle et numéro de série du serveur : demandés pour toute intervention matérielle ou garantie.'
+    exemple: |
+      	Manufacturer: Supermicro
+      	Product Name: SYS-5019C-M
+      	Serial Number: S123456789
+    mots: [modèle, série, matériel, garantie]
 
   - id: ssh-vers-le-lms-tcs
     titre: SSH vers le LMS / TCS
@@ -131,5 +346,34 @@ commandes:
     niveau: info
     commande: |-
       ssh sysadm@{LMS}
-    but: Depuis le TMS. Puis sudo -i pour lire les dossiers de contenu.
-    attendu: Bannière « Theater Central Server (TCS) » puis invite sysadm@frmXXXXtcs0001
+    but: 'Depuis le TMS, ouvre une session sur le LMS. Ensuite `sudo -i` pour lire les dossiers de contenu.'
+    detail: |
+      ssh → connexion sécurisée à une autre machine
+      sysadm → utilisateur avec lequel on se connecte
+      @{LMS} → adresse de la machine cible
+    exemple: |
+      sysadm@192.0.2.4's password:
+      *** Theater Central Server (TCS) ***
+      sysadm@frmXXXXtcs0001:~$
+    attendu: 'Bannière « Theater Central Server (TCS) » puis invite sysadm@frmXXXXtcs0001'
+    si_ko: |
+      - « Connection refused » : SSH n’écoute pas (LMS Debian sans SSH : passer par FTP).
+      - « Connection timed out » : machine éteinte ou mauvaise IP.
+      - « WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED » : la machine a été remplacée ou réinstallée. Ne pas forcer sans comprendre ; le signaler.
+    mots: [ssh, connexion, lms, tcs]
+
+  - id: enregistrer-sa-session
+    titre: Enregistrer sa session pour le ticket
+    machine: lin
+    niveau: info
+    commande: |-
+      script -a /tmp/session_$(date +%F_%H%M).log
+    but: 'Enregistre tout ce qui s’affiche dans le terminal (commandes et résultats) dans un fichier. Idéal pour joindre une trace complète à un ticket N2/N3.'
+    detail: |
+      script → enregistre la session dans un fichier
+      -a → ajoute à la fin si le fichier existe déjà
+      $(date +%F_%H%M) → date et heure dans le nom, ex. 2026-10-18_1432
+    lecture: '« Script started, file is … » : l’enregistrement commence. Tape `exit` pour l’arrêter, puis récupère le fichier dans /tmp.'
+    attention: 'Les mots de passe tapés ne s’affichent pas et ne sont pas enregistrés, mais tout le reste l’est : relis le fichier avant de le joindre.'
+    mots: [trace, ticket, enregistrer, log]
+    maj: 2026-10-18

@@ -142,3 +142,10 @@
   groupe: PC
   format: winif
   exemple: Ethernet
+
+# --- Linux ---
+- cle: SVC
+  libelle: Service systemd (tomcat8, mongodb…)
+  groupe: Linux
+  format: svc
+  exemple: tomcat8
