@@ -7,7 +7,7 @@ Résultat : chaque modification enregistrée sur GitHub est en ligne en une à d
 ## 1. Cloudflare Pages
 
 1. Tableau de bord Cloudflare → **Workers & Pages** → **Create** → onglet **Pages** → **Connect to Git**.
-2. Autoriser GitHub et choisir le dépôt `memo-ssh-cabine`.
+2. Autoriser GitHub et choisir le dépôt `meme-ssh-cabine`.
 3. Réglages de build :
    - Framework preset : **None**
    - Build command : **`npm run build`**
