@@ -1,7 +1,7 @@
 id: kdm
 titre: KDM & boîtes mail
 groupe: TMS & Linux
-intro: Relève IMAP, dépôt des KDM sur le LMS, KDM en base et validité.
+intro: 'Chemin d’une KDM : mail du distributeur → boîte mail du cinéma → relève IMAP par le TMS → dépôt FTP sur le LMS → import en base. On vérifie chaque maillon dans cet ordre.'
 
 commandes:
   - id: boites-mail-sans-secrets
@@ -10,34 +10,64 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'db.mailAccounts.find().forEach(function(a){ var o={}; for (var k in a){ if(!/pass|secret|token|cred|pseudo/i.test(k)) o[k]=a[k]; } printjson(o) })'
-    but: 'Serveur et identifiant sont chiffrés : seuls type, port et lastMessage sont lisibles.'
-    attendu: lastMessage récent = la relève IMAP fonctionne
+    but: 'Les boîtes mail que le TMS relève, sans afficher les mots de passe. Le champ lastMessage dit quand le dernier mail a été lu.'
+    detail: |
+      db.mailAccounts.find() → toutes les boîtes déclarées
+      if(!/pass|secret|…/i.test(k)) → n’affiche pas les champs sensibles
+    lecture: |
+      - Serveur et identifiant sont chiffrés en base : seuls le type, le port et **lastMessage** sont lisibles.
+      - lastMessage récent (aujourd’hui) = la relève IMAP fonctionne : si une KDM manque, le problème est après (dépôt sur le LMS).
+    attendu: 'lastMessage récent = la relève IMAP fonctionne'
+    voir: [kdm-mail]
+    mots: [mail, imap, boîte, kdm]
 
   - id: erreurs-de-releve-et-de-depot-kdm
     titre: Erreurs de relève et de dépôt KDM
     machine: tms
     niveau: info
     commande: |-
-      grep -iE "KdmService|AuthenticationFailed|MessagingException|imap|mailbox" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -30
-    but: Distingue un problème de boîte mail d’un problème de dépôt sur le LMS.
-    attendu: « Unable to connect to host … » (FtpException) = dépôt sur le LMS impossible, souvent disque plein. AUTHENTICATIONFAILED = identifiants.
+      sudo grep -iE "KdmService|AuthenticationFailed|MessagingException|imap|mailbox" /var/log/tomcat8/catalina.out | grep -v "^\s*at " | tail -30
+    but: 'Distingue un problème de boîte mail d’un problème de dépôt sur le LMS.'
+    lecture: |
+      - **Unable to connect to host …** (FtpException) : la KDM a été lue mais pas déposée sur le LMS, souvent parce que son disque est plein.
+      - **AUTHENTICATIONFAILED** : identifiant ou mot de passe de la boîte refusé (mot de passe changé, mot de passe d’application Gmail requis).
+      - **MessagingException / connect timed out** : le serveur mail n’est pas joignable (réseau, pare-feu).
+    attendu: 'Aucune erreur récente'
+    voir: [lms-plein, tester-une-boite-gmail-en-imap]
+    mots: [kdm, erreurs, imap, ftp, authentification]
 
   - id: depuis-quand-l-erreur-dure
     titre: Depuis quand l’erreur dure
     machine: tms
     niveau: info
     commande: |-
-      grep -c "Unable to connect to host" /var/log/tomcat8/catalina.out ; grep -m1 "Unable to connect to host" /var/log/tomcat8/catalina.out
-    but: Nombre d’occurrences et première date dans le journal actuel.
+      sudo grep -c "Unable to connect to host" /var/log/tomcat8/catalina.out ; sudo grep -m1 "Unable to connect to host" /var/log/tomcat8/catalina.out
+    but: 'Nombre d’occurrences et première apparition dans le journal actuel. Remplace le texte par l’erreur qui t’intéresse.'
+    detail: |
+      grep -c → compte les lignes trouvées
+      grep -m1 → affiche seulement la première
+    lecture: 'La date de la première ligne = début probable de la panne. Toutes les KDM reçues depuis sont à vérifier.'
+    mots: [depuis quand, début, panne]
 
   - id: kdm-en-base-pour-un-film
     titre: KDM en base pour un film
     machine: tms
     niveau: info
     commande: |-
-      mongo --quiet ytms --eval 'db.kdms.find({$or:[{name:/{FILM}/},{kdmPath:/{FILM}/}]},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})' | sort | uniq -c
-    but: 'Regroupe les doublons : une ligne par version et période.'
-    attendu: Rien = KDM jamais importée. Fin de validité dépassée = demander une nouvelle KDM.
+      mongo --quiet ytms --eval 'db.kdms.find({$or:[{name:/{FILM}/i},{kdmPath:/{FILM}/i}]},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})' | sort | uniq -c
+    but: 'Les KDM importées pour un film, avec leurs dates de validité. Les doublons sont regroupés (le chiffre devant = nombre de KDM identiques, une par serveur).'
+    detail: |
+      {name:/{FILM}/i} → nom de KDM contenant le motif, majuscules ou non
+      startDate -> endDate → période de validité
+      sort | uniq -c → regroupe les lignes identiques et les compte
+    exemple: |
+            8 2026-10-15 -> 2026-11-12 | NomDuFilm_FTR-1_F_FR-XX_FR_51_2K_…
+            8 2026-09-17 -> 2026-10-14 | NomDuFilm_FTR-1_F_FR-XX_FR_51_2K_…
+    lecture: |
+      - Une ligne par période et par version. Le chiffre = nombre de serveurs couverts : il doit correspondre au nombre de salles qui jouent le film.
+      - Rien = KDM jamais importée. Date de fin passée = KDM expirée : demander une nouvelle KDM au distributeur.
+    voir: [kdm-mail]
+    mots: [kdm, film, validité, expirée]
 
   - id: films-avec-une-kdm-encore-valide
     titre: Films avec une KDM encore valide
@@ -45,15 +75,20 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'var s={}; db.kdms.find({endDate:{$gte:new Date()}},{name:1,endDate:1}).forEach(function(k){var f=k.name.split("_")[0]; if(!s[f]||k.endDate>s[f]) s[f]=k.endDate}); Object.keys(s).sort().forEach(function(f){print(s[f].toISOString().slice(0,10)+" | "+f)})'
-    but: Date de fin la plus tardive par film. Sert aussi à valider une purge du LMS.
+    but: 'Pour chaque film qui a encore une KDM valide : sa date de fin la plus tardive. Sert aussi à valider une purge du LMS (on ne supprime jamais un film de cette liste).'
+    exemple: |
+      2026-11-12 | NomDuFilm
+      2026-10-30 | AutreFilm
+    mots: [kdm, valide, purge, films]
 
   - id: kdm-de-la-semaine-en-base
-    titre: KDM de la semaine en base
+    titre: KDM valides les plus récentes
     machine: tms
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'db.kdms.find({endDate:{$gte:new Date()}},{name:1,startDate:1,endDate:1}).sort({startDate:-1}).limit(40).forEach(function(k){print(k.startDate.toISOString().slice(0,10)+" -> "+k.endDate.toISOString().slice(0,10)+" | "+k.name)})'
-    but: Les 40 KDM valides les plus récentes.
+    but: 'Les 40 KDM valides dont la période commence le plus récemment : ce qui est arrivé ces derniers jours.'
+    mots: [kdm, récentes, semaine]
 
   - id: kdm-recues-sur-le-lms
     titre: KDM reçues sur le LMS
@@ -61,8 +96,10 @@ commandes:
     niveau: info
     commande: |-
       ssh sysadm@{LMS} "ls -lt {KDM_DIR} | head -40"
-    but: Ce que la relève a déposé, le plus récent en premier.
-    attendu: Une KDM fait 20 à 60 Ko
+    but: 'Ce que la relève a déposé sur le LMS, le plus récent en premier. Lancée depuis le TMS.'
+    lecture: 'Une KDM pèse 20 à 60 Ko. La date du fichier = heure du dépôt. Rien de récent alors que des mails sont arrivés = dépôt en échec (voir les erreurs Tomcat).'
+    attendu: 'Des fichiers .xml récents de 20 à 60 Ko'
+    mots: [kdm, lms, dépôt]
 
   - id: kdm-vides-ou-tronquees-sur-le-lms
     titre: KDM vides ou tronquées sur le LMS
@@ -70,15 +107,27 @@ commandes:
     niveau: info
     commande: |-
       ssh sysadm@{LMS} "find {KDM_DIR} -name '*.xml' -size -16k -ls | head -40"
-    but: 0 octet, 4096 ou 12288 octets = écriture coupée, le plus souvent par un disque plein.
-    attention: 'Ces fichiers ne seront jamais relus : le client doit retransférer le mail d’origine vers la boîte KDM.'
+    but: 'KDM écrites à moitié (moins de 16 Ko). Une taille de 0, 4096 ou 12288 octets = écriture coupée, le plus souvent par un disque plein.'
+    attendu: 'Aucune ligne'
+    attention: 'Ces fichiers ne seront jamais relus : une fois le disque libéré, le client doit retransférer le mail d’origine vers la boîte KDM.'
+    mots: [kdm, vide, tronquée, disque plein]
 
   - id: tester-une-boite-gmail-en-imap
-    titre: Tester une boîte Gmail en IMAP
-    machine: tms
+    titre: Tester une boîte mail en IMAP
+    machine: lin
     niveau: info
     commande: |-
       openssl s_client -connect imap.gmail.com:993 -crlf -quiet
-    but: 'Puis taper : a1 LOGIN adresse motdepasse puis a2 LOGOUT. Avec la validation en deux étapes, Gmail exige un mot de passe d’application.'
-    attendu: a1 OK = identifiants valides
-    attention: Ne jamais écrire le mot de passe dans le ticket.
+    but: 'Se connecte au serveur IMAP comme le ferait le TMS, pour tester l’identifiant et le mot de passe à la main. Remplace imap.gmail.com par le serveur de la boîte (outlook.office365.com, ssl0.ovh.net…).'
+    detail: |
+      openssl s_client → ouvre une connexion chiffrée (TLS) vers un serveur
+      -connect hôte:993 → port IMAP sécurisé
+      -crlf → envoie des fins de ligne compatibles IMAP
+      -quiet → masque le détail des certificats
+    lecture: |
+      Une fois « * OK … ready » affiché, taper (à la main) :
+      - `a1 LOGIN adresse@exemple.fr motdepasse` → **a1 OK** = identifiants valides ; **a1 NO [AUTHENTICATIONFAILED]** = refusés.
+      - `a2 LOGOUT` pour sortir.
+    si_ko: 'Gmail avec validation en deux étapes : il faut un mot de passe d’application. Outlook.com / Microsoft 365 : la connexion IMAP par simple mot de passe n’est plus acceptée.'
+    attention: 'Ne jamais écrire le mot de passe dans le ticket.'
+    mots: [imap, gmail, mail, mot de passe, test]

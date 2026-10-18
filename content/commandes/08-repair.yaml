@@ -1,7 +1,7 @@
 id: repair
 titre: Réparation & backup
 groupe: TMS & Linux
-intro: 'Cas lourds : base corrompue, sauvegarde, restauration, disque.'
+intro: 'Cas lourds : sauvegarder et restaurer la base, réparer Mongo après une coupure, libérer de la place, contrôler un disque. Toujours une sauvegarde avant de modifier.'
 
 commandes:
   - id: sauvegarde-datee-de-la-base
@@ -9,56 +9,105 @@ commandes:
     machine: tms
     niveau: action
     commande: |-
-      mongodump --db ytms -o /root/backup_ytms_$(date +%F_%H%M)
-    but: À faire avant tout drop, repair ou modification de la base.
+      sudo mongodump --db ytms -o /root/backup_ytms_$(date +%F_%H%M) && sudo du -sh /root/backup_ytms_*
+    but: 'Copie complète de la base du TMS dans un dossier daté. À faire avant toute réparation, restauration ou modification.'
+    detail: |
+      mongodump --db ytms → exporte la base ytms
+      -o /root/backup_ytms_… → dans ce dossier
+      $(date +%F_%H%M) → date et heure dans le nom
+      du -sh → affiche la taille des sauvegardes pour vérifier
+    exemple: |
+      2026-10-18T14:40:02.112+0200	writing ytms.kdms to
+      2026-10-18T14:40:05.918+0200	done dumping ytms.kdms (5210 documents)
+      48M	/root/backup_ytms_2026-10-18_1440
+    attendu: 'Des lignes « done dumping » et un dossier de quelques dizaines de Mo'
+    si_ko: 'Vérifie l’espace disque avant (`df -h /root`) : une sauvegarde sur un disque plein échoue.'
+    mots: [sauvegarde, backup, mongodump]
 
   - id: sauvegarde-complete
-    titre: Sauvegarde complète
+    titre: Sauvegarde de toutes les bases
     machine: tms
     niveau: action
     commande: |-
-      mongodump -o /backup
-    but: Sauvegarde toutes les bases dans /backup.
+      sudo mongodump -o /backup
+    but: 'Sauvegarde toutes les bases Mongo dans /backup.'
+    mots: [sauvegarde, backup]
 
   - id: restaurer-la-base
     titre: Restaurer la base
     machine: tms
     niveau: danger
     commande: |-
-      mongorestore --dir /backup
-    but: Restaure depuis /backup.
-    attention: Écrase les données actuelles.
+      sudo mongorestore --drop --db ytms /backup/ytms
+    but: 'Remplace la base ytms par celle de la sauvegarde.'
+    detail: |
+      --drop → vide chaque collection avant de la recharger (sinon on obtient des doublons)
+      --db ytms /backup/ytms → recharge la base ytms depuis son dossier de sauvegarde
+    attention: 'Écrase les données actuelles : tout ce qui a changé depuis la sauvegarde est perdu. Arrêter Tomcat et le cœur TMS avant, faire une sauvegarde datée de l’état actuel, et accord du N2.'
+    mots: [restaurer, mongorestore]
 
   - id: reparer-une-base-corrompue
     titre: Réparer une base corrompue
     machine: tms
     niveau: danger
     commande: |-
-      mongod --dbpath /var/lib/mongodb --repair
-    but: Mongo ne démarre plus après une coupure.
-    attention: Arrêter mongodb avant, puis corriger les droits.
+      sudo systemctl stop mongodb ; sudo -u mongodb mongod --dbpath /var/lib/mongodb --repair ; sudo systemctl start mongodb ; systemctl is-active mongodb
+    but: 'Mongo ne démarre plus après une coupure de courant. La réparation reconstruit les fichiers de la base.'
+    detail: |
+      systemctl stop mongodb → la base doit être arrêtée pendant la réparation
+      sudo -u mongodb → lance la réparation sous l’utilisateur mongodb (les fichiers gardent le bon propriétaire)
+      mongod --dbpath /var/lib/mongodb --repair → répare la base de ce dossier
+      systemctl start mongodb → redémarre la base réparée
+    attendu: 'active à la fin'
+    si_ko: 'Si Mongo refuse toujours de démarrer : `journalctl -u mongodb -n 50 --no-pager` et ticket N2. Si la réparation a été lancée en root par erreur, voir « Droits après réparation ».'
+    attention: 'Faire d’abord une copie du dossier `/var/lib/mongodb` si l’espace le permet. Relancer ensuite le cœur TMS et Tomcat.'
+    voir: [droits-apres-reparation, relance-complete-tms]
+    mots: [mongo, réparer, corrompu, coupure]
 
   - id: droits-apres-reparation
     titre: Droits après réparation
     machine: tms
     niveau: action
     commande: |-
-      chown -R mongodb: /var/lib/mongodb
-    but: Remet les fichiers à l’utilisateur mongodb.
+      sudo chown -R mongodb:mongodb /var/lib/mongodb
+    but: 'Rend les fichiers de la base à l’utilisateur mongodb. Nécessaire si une réparation a été lancée en root : sinon Mongo refuse de démarrer (« Permission denied »).'
+    mots: [droits, chown, mongo]
 
   - id: purger-les-vieux-journaux
     titre: Purger les vieux journaux
     machine: lin
     niveau: action
     commande: |-
-      journalctl --vacuum-size=200M
-    but: Libère de la place en gardant 200 Mo de journaux.
+      sudo journalctl --vacuum-size=200M
+    but: 'Libère de la place en ne gardant que 200 Mo de journaux systemd archivés. Sans risque pour les services.'
+    exemple: |
+      Deleted archived journal /var/log/journal/…/system@…journal (128.0M).
+      Vacuuming done, freed 3.4G of archived journals from /var/log/journal.
+    lecture: '« freed X » = place récupérée. Vérifie ensuite avec `df -h`.'
+    mots: [journaux, purge, disque plein, place]
+
+  - id: vider-un-log-sans-le-supprimer
+    titre: Vider un fichier de log sans le supprimer
+    machine: lin
+    niveau: action
+    commande: |-
+      sudo truncate -s 0 /var/log/tomcat8/catalina.out
+    but: 'Remet à zéro un log géant encore ouvert par un programme. Le supprimer avec rm ne libérerait pas la place tant que le programme tourne.'
+    detail: |
+      truncate -s 0 → ramène la taille du fichier à 0 octet, sans le supprimer
+    attention: 'L’historique du fichier est perdu : copie d’abord les dernières lignes utiles (`tail -n 2000 … > /root/catalina_extrait.log`).'
+    mots: [log, vider, disque plein, truncate]
+    maj: 2026-10-18
 
   - id: sante-du-disque
     titre: Santé du disque
     machine: lin
     niveau: info
     commande: |-
-      smartctl -H /dev/sda
-    but: Nécessite smartmontools.
-    attendu: PASSED
+      sudo smartctl -H /dev/sda
+    but: 'Demande au disque son propre diagnostic SMART. Nécessite le paquet smartmontools.'
+    exemple: |
+      SMART overall-health self-assessment test result: PASSED
+    attendu: 'PASSED'
+    si_ko: 'FAILED = disque en fin de vie : sauvegarder la base sans attendre et ouvrir un ticket matériel. « command not found » = smartmontools absent.'
+    mots: [smart, disque, santé, panne]

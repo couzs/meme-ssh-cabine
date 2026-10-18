@@ -1,7 +1,7 @@
 id: licence
 titre: Licence & monitoring
 groupe: TMS & Linux
-intro: Licence TMS, remontée vers le monitoring, installations.
+intro: 'Licence du TMS, remontée des informations vers la supervision, et installation de paquets (avec accord).'
 
 commandes:
   - id: lire-la-licence
@@ -9,30 +9,56 @@ commandes:
     machine: tms
     niveau: info
     commande: |-
-      gpg --decrypt /etc/tms-ymagis-daemon/license/license
-    but: Vérifier la validité de la licence.
+      sudo gpg --decrypt /etc/tms-ymagis-daemon/license/license
+    but: 'Déchiffre et affiche la licence du TMS : client, dates de validité, nombre de salles.'
+    lecture: 'Regarde la date de fin et le nombre d’écrans. Une ligne « Good signature » confirme que la licence est authentique.'
+    si_ko: 'Licence expirée ou nombre de salles dépassé : ticket au N2 avec la sortie de la commande.'
+    mots: [licence, gpg, validité]
 
   - id: remontee-au-monitoring
     titre: Remontée au monitoring
     machine: tms
     niveau: info
     commande: |-
-      ls -ltr /var/cache/ymagis-pandora-tcs/backups/
-    but: Les fichiers récents prouvent que les logs remontent.
+      ls -ltr /var/cache/ymagis-pandora-tcs/backups/ | tail
+    but: 'Les derniers fichiers envoyés à la supervision. Des fichiers récents prouvent que les remontées fonctionnent.'
+    detail: |
+      ls -ltr → liste détaillée triée par date, la plus récente en dernier (r = reverse)
+      tail → les 10 derniers
+    lecture: 'Le dernier fichier doit dater d’aujourd’hui. Plus rien depuis plusieurs jours = le site n’est plus supervisé (réseau, VPN, cœur TMS arrêté).'
+    mots: [monitoring, supervision, remontée, pandora]
 
   - id: installer-nmap
     titre: Installer nmap
     machine: lin
     niveau: action
     commande: |-
-      sudo apt update && sudo apt install nmap -y
-    but: Installation de nmap.
-    attention: Pas sur un serveur de prod sans accord. Le noter dans le ticket.
+      sudo apt update && sudo apt install -y nmap
+    but: 'Installe nmap, l’outil de scan réseau.'
+    detail: |
+      apt update → met à jour la liste des paquets disponibles
+      && → ne lance la suite que si la première commande a réussi
+      apt install -y nmap → installe sans demander de confirmation
+    attention: 'Pas sur un serveur de prod sans accord. Le noter dans le ticket. Sans nmap, les fiches « Ports sans nmap » et « Balayage rapide » font l’essentiel.'
+    mots: [installer, apt, nmap, paquet]
+
+  - id: paquet-installe
+    titre: Un paquet est-il installé ?
+    machine: lin
+    niveau: info
+    commande: |-
+      dpkg -l | grep -iE "nmap|tcpdump|mongodb|ftp|smartmontools"
+    but: 'Vérifie si des outils sont déjà présents, avant de proposer une installation. Remplace les noms par ceux qui t’intéressent.'
+    lecture: '« ii » en début de ligne = installé. Aucune ligne pour un nom = pas installé.'
+    mots: [paquet, installé, dpkg]
+    maj: 2026-10-18
 
   - id: installer-dcp-creator
     titre: Installer DCP Creator
     machine: tms
     niveau: action
     commande: |-
-      sudo apt-get update && sudo apt-get install tms-ymagis-plugin-quickdcp -y
-    but: Installation du plugin QuickDCP sur le TMS.
+      sudo apt-get update && sudo apt-get install -y tms-ymagis-plugin-quickdcp
+    but: 'Installation du plugin QuickDCP (création de DCP) sur le TMS.'
+    lecture: 'Relancer Tomcat ensuite pour que le plugin apparaisse dans l’interface.'
+    mots: [quickdcp, dcp creator, plugin]

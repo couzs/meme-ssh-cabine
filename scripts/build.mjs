@@ -201,7 +201,7 @@ for (const [dir, type] of [['apprendre', 'guide'], ['reperes', 'ref']]) {
 }
 
 /* ---------- liens entre fiches ---------- */
-for (const c of commandes) for (const v of c.voir) if (!CMD.has(v) && !procedures.some(p => p.id === v)) err(C(c.fichier.replace(/^content\//, '')), 'commande « ' + c.id + ' » : voir « ' + v + ' » introuvable');
+for (const c of commandes) for (const v of c.voir) if (!CMD.has(v) && !procedures.some(p => p.id === v) && !pages.some(p => p.id === v)) err(C(c.fichier.replace(/^content\//, '')), 'commande « ' + c.id + ' » : voir « ' + v + ' » introuvable');
 
 /* ---------- nouveautés ---------- */
 const nvFile = C('nouveautes.yaml');

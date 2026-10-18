@@ -149,3 +149,8 @@
   groupe: Linux
   format: svc
   exemple: tomcat8
+- cle: PORT
+  libelle: Port TCP à tester
+  groupe: Linux
+  format: port
+  exemple: '43758'

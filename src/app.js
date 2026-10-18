@@ -139,7 +139,7 @@ function learnHTML(c, open) {
   if (c.exemple) h += '<div class="lsec"><h4>Exemple de résultat</h4><pre class="out">' + esc(c.exemple) + '</pre></div>';
   if (c.lecture) h += '<div class="lsec"><h4>Comment lire le résultat</h4>' + c.lecture + '</div>';
   if (c.si_ko) h += '<div class="lsec ko"><h4>Si ça ne va pas</h4>' + c.si_ko + '</div>';
-  const voir = c.voir.map(v => CMD[v] ? '<a class="linkbtn" href="#c/' + v + '">' + esc(CMD[v].titre) + '</a>' : PROC[v] ? '<a class="linkbtn" href="#p/' + v + '">▶ ' + esc(PROC[v].titre) + '</a>' : '').join('');
+  const voir = c.voir.map(v => CMD[v] ? '<a class="linkbtn" href="#c/' + v + '">' + esc(CMD[v].titre) + '</a>' : PROC[v] ? '<a class="linkbtn" href="#p/' + v + '">▶ ' + esc(PROC[v].titre) + '</a>' : PAGE[v] ? '<a class="linkbtn" href="#page/' + v + '">📖 ' + esc(PAGE[v].titre) + '</a>' : '').join('');
   if (voir) h += '<div class="lsec"><h4>Voir aussi</h4><div class="voir">' + voir + '</div></div>';
   if (!h) return '';
   return '<details class="learn"' + (open ? ' open' : '') + '><summary>Comprendre' + (c.exemple ? ' · exemple' : '') + (c.lecture ? ' · lire le résultat' : '') + '</summary>' + h + '</details>';

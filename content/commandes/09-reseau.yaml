@@ -1,7 +1,7 @@
 id: reseau
 titre: Réseau / équipements
 groupe: Réseau
-intro: Joindre un projecteur, un serveur ou un IMS depuis le TMS ou l’ORC.
+intro: 'Joindre un projecteur, un serveur ou un processeur son. L’ordre qui marche : répond-il (ping) ? qui répond (MAC) ? ses services sont-ils ouverts (ports) ? le TMS lui parle-t-il (connexions) ?'
 
 commandes:
   - id: ping
@@ -10,7 +10,26 @@ commandes:
     niveau: info
     commande: |-
       ping -c 3 {IP}
-    but: Équipement joignable ou non.
+    but: 'Envoie 3 petits paquets à l’équipement et attend les réponses. Le test de base : est-il vivant et joignable ?'
+    detail: |
+      ping → envoie des paquets ICMP « echo » et mesure le temps de réponse
+      -c 3 → s’arrête après 3 envois (sinon il tourne jusqu’à Ctrl+C)
+    exemple: |
+      PING 192.0.2.41 (192.0.2.41) 56(84) bytes of data.
+      64 bytes from 192.0.2.41: icmp_seq=1 ttl=64 time=0.412 ms
+      64 bytes from 192.0.2.41: icmp_seq=2 ttl=64 time=0.388 ms
+      64 bytes from 192.0.2.41: icmp_seq=3 ttl=64 time=0.401 ms
+
+      --- 192.0.2.41 ping statistics ---
+      3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+    lecture: |
+      - **3 received, 0% packet loss** : l’équipement répond.
+      - **time=** : temps de réponse. En réseau local, moins de 1 à 2 ms.
+      - **100% packet loss** : rien ne répond… ou l’équipement bloque le ping. Regarder la MAC (fiche suivante) avant de conclure.
+      - **Destination Host Unreachable** : personne n’a cette IP sur le réseau.
+    attendu: '0% packet loss'
+    voir: [mac-de-l-equipement, equip]
+    mots: [ping, joignable, réseau, vivant]
 
   - id: mac-de-l-equipement
     titre: MAC de l’équipement
@@ -18,49 +37,92 @@ commandes:
     niveau: info
     commande: |-
       ip neigh show {IP}
-    but: La MAC dit qui est là (Barco = 00:04:a5, Supermicro = 00:25:90 / 00:30:48 / ac:1f:6b).
-    attendu: FAILED = rien ne répond à cette IP
+    but: 'L’adresse matérielle (MAC) de celui qui répond à cette IP. Le début de la MAC indique le fabricant : on sait qui est là.'
+    exemple: |
+      192.0.2.41 dev br2 lladdr 00:04:a5:12:34:56 REACHABLE
+    lecture: |
+      - **lladdr** = la MAC. `00:04:a5` = Barco, `00:60:35` = JNIOR, `00:d0:46` = Dolby, `00:25:90` / `00:30:48` / `ac:1f:6b` = Supermicro (serveurs).
+      - **REACHABLE / STALE / DELAY** = l’équipement a répondu récemment.
+      - **FAILED** ou **INCOMPLETE** = rien ne répond à cette IP.
+      - Aucune ligne = la machine n’a pas encore cherché cette IP : fais un ping avant.
+    attendu: 'Une MAC et REACHABLE ou STALE'
+    mots: [mac, arp, fabricant, voisin]
 
   - id: voisins-reseau-vivants
     titre: Voisins réseau vivants
     machine: lin
     niveau: info
     commande: |-
-      ip neigh show | grep -v FAILED | sort
-    but: Toutes les IP vues récemment avec leur MAC.
+      ip neigh show | grep -v FAILED | sort -V
+    but: 'Toutes les IP vues récemment avec leur MAC, triées dans l’ordre des adresses.'
+    detail: |
+      grep -v FAILED → retire les IP qui n’ont pas répondu
+      sort -V → tri « naturel » : .2 avant .10 avant .100
+    lecture: 'Compare avec la liste des équipements du TMS (« Salles, équipements et IP ») : une IP attendue absente = équipement éteint ou mal configuré.'
+    mots: [voisins, arp, inventaire, mac]
 
   - id: tous-les-barco-vus
     titre: Tous les Barco vus
     machine: lin
     niveau: info
     commande: |-
-      ip neigh | grep -i 00:04:a5
-    but: Projecteurs et ICMP/IMS Barco présents sur le réseau.
+      ip neigh show | grep -i "00:04:a5" | sort -V
+    but: 'Projecteurs et serveurs ICMP/IMS Barco présents sur le réseau.'
+    mots: [barco, projecteur, mac]
 
   - id: ports-sans-nmap
     titre: Ports sans nmap
     machine: lin
     niveau: info
     commande: |-
-      for p in 22 80 43728 43758; do timeout 2 bash -c "</dev/tcp/{IP}/$p" && echo "$p OK" || echo "$p KO"; done
-    but: Teste les ports clés d’un Barco.
+      for p in 22 80 443 43728 43758; do timeout 2 bash -c "</dev/tcp/{IP}/$p" 2>/dev/null && echo "$p OK" || echo "$p KO"; done
+    but: 'Teste les ports clés d’un Barco sans aucun outil à installer : SSH, web, Communicator, API IMS/ICMP.'
+    detail: |
+      for p in … → répète le test pour chaque port
+      bash -c "</dev/tcp/IP/PORT" → bash tente d’ouvrir une connexion TCP vers ce port
+      timeout 2 → abandonne au bout de 2 secondes
+      && echo OK || echo KO → affiche OK si la connexion a réussi, KO sinon
+    exemple: |
+      22 KO
+      80 OK
+      443 OK
+      43728 OK
+      43758 OK
+    lecture: '**43728** = Communicator (projecteur), **43758** = API IMS/ICMP utilisée par le TMS, **80/443** = interface web. Ping OK mais 43758 KO = le serveur de salle est vivant mais son service ne répond pas (redémarrage du serveur à prévoir).'
+    voir: [barco]
+    mots: [ports, tcp, barco, sans nmap]
 
   - id: un-port-avec-nc
     titre: Un port avec nc
     machine: lin
     niveau: info
     commande: |-
-      nc -zv -w3 {IP} 21
-    but: Remplacer 21 par le port voulu.
-    attendu: succeeded = port ouvert
+      nc -zv -w3 {IP} {PORT}
+    but: 'Teste un seul port (renseigne la variable PORT).'
+    detail: |
+      nc → netcat, couteau suisse du réseau
+      -z → teste seulement l’ouverture, sans envoyer de données
+      -v → affiche le résultat
+      -w3 → abandonne après 3 secondes
+    lecture: '« succeeded » ou « open » = port ouvert. « Connection refused » = l’équipement répond mais rien n’écoute sur ce port. « timed out » = filtré ou équipement absent.'
+    attendu: 'succeeded = port ouvert'
+    mots: [port, nc, netcat]
 
   - id: balayage-rapide-d-un-reseau
     titre: Balayage rapide d’un réseau
     machine: lin
     niveau: info
     commande: |-
-      ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh | grep -v FAILED | grep "{NET}\."
-    but: Pings en parallèle, environ 2 secondes, sans les messages de tâches de fond.
+      ( for i in $(seq 1 254); do ping -c1 -W1 {NET}.$i >/dev/null 2>&1 & done; wait ) ; ip neigh show | grep -v FAILED | grep "^{NET}\." | sort -V
+    but: 'Pingue les 254 adresses du réseau en parallèle (environ 2 secondes), puis liste tout ce qui a répondu avec sa MAC.'
+    detail: |
+      seq 1 254 → les nombres de 1 à 254
+      ping -c1 -W1 … & → un ping d’une seconde maximum, lancé en arrière-plan (&)
+      wait → attend la fin de tous les pings
+      ( … ) → les parenthèses masquent les messages des tâches de fond
+      ip neigh … grep "^NET\." → ne garde que les IP de ce réseau
+    lecture: 'Une ligne par équipement présent. Compte-les et compare avec le nombre d’équipements attendus (projecteurs + serveurs + son + JNIOR).'
+    mots: [scan, balayage, réseau, inventaire]
 
   - id: scan-du-reseau-nmap
     titre: Scan du réseau (nmap)
@@ -68,39 +130,69 @@ commandes:
     niveau: info
     commande: |-
       sudo nmap -sn -n {NET}.0/24
-    but: Liste des IP qui répondent.
+    but: 'Liste les IP qui répondent, avec le fabricant de chaque carte réseau.'
+    detail: |
+      -sn → découverte seulement, pas de scan de ports
+      -n → pas de résolution DNS (plus rapide)
+      /24 → les 256 adresses du réseau
+    exemple: |
+      Nmap scan report for 192.0.2.41
+      Host is up (0.00041s latency).
+      MAC Address: 00:04:A5:12:34:56 (Barco)
+    mots: [nmap, scan, réseau]
 
   - id: ports-d-un-equipement-nmap
     titre: Ports d’un équipement (nmap)
     machine: lin
     niveau: info
     commande: |-
-      sudo nmap -p 22,80,443,43728,43758 {IP}
-    but: Ports ouverts sur un équipement précis.
+      sudo nmap -Pn -p 22,80,443,43728,43758,61412,9200 {IP}
+    but: 'État des ports utiles en cabine sur un équipement précis.'
+    detail: |
+      -Pn → ne vérifie pas d’abord le ping (certains équipements ne répondent pas au ping)
+      -p … → la liste des ports à tester
+    lecture: '**open** = ouvert, **closed** = l’équipement répond mais rien n’écoute, **filtered** = pas de réponse (pare-feu ou équipement absent).'
+    mots: [nmap, ports]
 
   - id: interface-web-repond
     titre: Interface web répond ?
     machine: lin
     niveau: info
     commande: |-
-      curl -sI http://{IP}
-    but: Une ligne HTTP/1.1 = serveur web vivant.
+      curl -skI --max-time 5 http://{IP} | head -3
+    but: 'Vérifie que le serveur web de l’équipement répond, sans navigateur.'
+    detail: |
+      -s → silencieux (pas de barre de progression)
+      -k → accepte les certificats non reconnus (fréquent sur les équipements)
+      -I → demande seulement les en-têtes
+      --max-time 5 → abandonne après 5 secondes
+    exemple: |
+      HTTP/1.1 302 Found
+      Location: https://192.0.2.41/
+    lecture: 'Une ligne « HTTP/1.1 » (200, 301, 302, 401…) = serveur web vivant. 401 = il demande un mot de passe, c’est normal. Rien = pas de serveur web joignable.'
+    mots: [web, http, curl, interface]
 
   - id: connexions-avec-l-equipement
     titre: Connexions avec l’équipement
     machine: lin
     niveau: info
     commande: |-
-      ss -tnp | grep {IP}
-    but: Le TMS parle-t-il vraiment au projecteur / à l’IMS ?
+      sudo ss -tnp | grep -wF "{IP}"
+    but: 'Le TMS est-il vraiment connecté au projecteur ou au serveur ? Montre les connexions TCP ouvertes avec cette IP.'
+    exemple: |
+      ESTAB 0 0 192.0.2.10:51234 192.0.2.41:43758 users:(("java",pid=1432,fd=88))
+    lecture: '**ESTAB** = connexion établie, avec le port distant (43758 = API du serveur). **SYN-SENT** qui reste = le TMS essaie mais personne ne répond.'
+    mots: [connexions, ss, tcp, établie]
 
   - id: erreurs-sur-les-cartes
-    titre: Erreurs sur les cartes
+    titre: Erreurs sur les cartes réseau
     machine: lin
     niveau: info
     commande: |-
-      ip -s link
-    but: Compteurs errors / dropped par interface.
+      ip -s -br link ; ip -s link | grep -A1 -E "RX:|TX:" | grep -vE "RX:|TX:|--"
+    but: 'Compteurs d’erreurs et de paquets perdus par carte : un câble abîmé ou un port de switch défaillant fait monter les erreurs.'
+    lecture: 'Relance la commande une minute plus tard : si **errors** ou **dropped** augmentent, le lien a un problème physique (câble, prise, port).'
+    mots: [erreurs, câble, dropped, carte réseau]
 
   - id: joindre-l-orc
     titre: Joindre l’ORC
@@ -108,31 +200,47 @@ commandes:
     niveau: info
     commande: |-
       ping -c 3 {ORC}
-    but: Le TMS voit-il sa passerelle ?
+    but: 'Depuis le TMS : la passerelle (l’ORC) répond-elle ? Sans elle, le TMS ne voit aucune salle.'
+    attendu: '0% packet loss'
+    mots: [orc, passerelle, ping]
 
   - id: sortie-internet
-    titre: Sortie Internet
+    titre: Sortie Internet et DNS
     machine: lin
     niveau: info
     commande: |-
-      ping -c 3 8.8.8.8 ; curl -sI https://www.google.com | head -1
-    but: Ping OK mais curl KO = souci DNS ou proxy.
+      ping -c 2 -W 2 8.8.8.8 ; getent hosts www.google.com ; curl -sI --max-time 5 https://www.google.com | head -1
+    but: 'Trois tests : Internet par IP, résolution de noms (DNS), accès web. Indique où ça coince.'
+    lecture: |
+      - Ping KO : pas de sortie Internet du tout (ORC, box, VPN).
+      - Ping OK mais getent n’affiche rien : souci de **DNS**.
+      - getent OK mais curl KO : souci de **proxy** ou de pare-feu web.
+    mots: [internet, dns, sortie, proxy]
 
   - id: dns-utilises
     titre: DNS utilisés
     machine: lin
     niveau: info
     commande: |-
-      systemd-resolve --status | grep -A2 "DNS Servers"
-    but: Serveurs DNS de la machine.
+      resolvectl status 2>/dev/null | grep -A2 "DNS Servers" || systemd-resolve --status 2>/dev/null | grep -A2 "DNS Servers" || cat /etc/resolv.conf
+    but: 'Serveurs DNS de la machine, quelle que soit la version d’Ubuntu.'
+    detail: |
+      resolvectl → outil des Ubuntu récents
+      || → si ça échoue, essaie le suivant
+      systemd-resolve --status → outil des Ubuntu 16.04 / 18.04
+      /etc/resolv.conf → fichier classique en dernier recours
+    lecture: '`nameserver 127.0.0.53` dans resolv.conf = cache local systemd : les vrais serveurs sont dans la sortie de resolvectl.'
+    mots: [dns, résolution, resolv]
 
   - id: chemin-reseau
     titre: Chemin réseau
     machine: lin
     niveau: info
     commande: |-
-      traceroute -n {IP}
-    but: Par où passent les paquets (si installé).
+      traceroute -n -w 2 {IP}
+    but: 'Par où passent les paquets jusqu’à l’équipement, routeur par routeur (si traceroute est installé).'
+    lecture: 'Chaque ligne = un routeur traversé. Des `* * *` à partir d’une ligne = les paquets se perdent après le dernier routeur affiché.'
+    mots: [traceroute, chemin, routeur]
 
   - id: config-reseau-sur-disque
     titre: Config réseau sur disque
@@ -140,7 +248,9 @@ commandes:
     niveau: info
     commande: |-
       cat /etc/netplan/*.yaml /etc/network/interfaces 2>/dev/null
-    but: Configuration IP fixe enregistrée.
+    but: 'La configuration IP enregistrée, celle qui sera appliquée au prochain démarrage (Ubuntu récent : netplan ; Ubuntu ancien et Debian : interfaces).'
+    lecture: 'Compare avec `ip -br a` : une différence = quelqu’un a changé l’IP à la main sans l’enregistrer (elle sera perdue au redémarrage).'
+    mots: [netplan, interfaces, configuration ip]
 
   - id: espace-libre-du-lms-en-ftp
     titre: Espace libre du LMS en FTP
@@ -148,6 +258,8 @@ commandes:
     niveau: info
     commande: |-
       ftp {LMS}
-    but: 'Taper lmsuser et le mot de passe À LA MAIN, attendre « 230 User lmsuser logged in », puis : quote SITE DF'
+    but: 'Interroge l’espace disque du LMS par FTP, utile quand on n’a pas d’accès SSH.'
+    lecture: 'Taper `lmsuser` puis le mot de passe **à la main**, attendre « 230 User lmsuser logged in », puis : `quote SITE DF`. Taille et espace libre sont en octets (divise par 1 000 000 000 pour des Go).'
     attendu: '200 df /: size: … free: … (en octets)'
     attention: 'Ne jamais coller un bloc pendant la connexion : les invites avalent les lignes.'
+    mots: [ftp, lms, espace, df]

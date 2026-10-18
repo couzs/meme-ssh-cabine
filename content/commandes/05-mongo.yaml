@@ -1,7 +1,7 @@
 id: mongo
 titre: Base Mongo
 groupe: TMS & Linux
-intro: Lecture de la base ytms du TMS.
+intro: 'MongoDB contient la mémoire du TMS : salles et équipements (booths), bibliothèques (library), films (cpls), clés (kdms), boîtes mail (mailAccounts). Ces commandes lisent seulement : elles ne modifient rien.'
 
 commandes:
   - id: ouvrir-la-base
@@ -10,15 +10,23 @@ commandes:
     niveau: info
     commande: |-
       mongo ytms
-    but: Accéder à la base TMS (exit pour sortir).
+    but: 'Ouvre la console de la base ytms (celle du TMS) pour taper des requêtes à la main.'
+    lecture: 'L’invite devient `>`. `show collections` liste les tables, `exit` pour sortir. Ne tape jamais `drop`, `remove` ou `update` sans procédure et sans sauvegarde.'
+    voir: [sauvegarde-datee-de-la-base]
+    mots: [mongo, console, base]
 
   - id: la-base-repond
     titre: La base répond ?
     machine: tms
     niveau: info
     commande: |-
-      echo "show tables" | mongo ytms
-    but: Liste les collections si Mongo est OK.
+      mongo --quiet ytms --eval 'db.getCollectionNames().join(", ")'
+    but: 'Test le plus simple : si Mongo répond, la liste des collections s’affiche.'
+    exemple: |
+      booths, cpls, kdms, library, mailAccounts, …
+    attendu: 'Une liste de collections'
+    si_ko: '« connect failed » ou « Connection refused » : Mongo est arrêté. Voir « MongoDB (la base) » puis « Relancer MongoDB ».'
+    mots: [mongo, test, répond]
 
   - id: salles-equipements-et-ip
     titre: Salles, équipements et IP
@@ -26,7 +34,19 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'db.booths.find().sort({number:1}).forEach(function(b){b.devices.forEach(function(d){print("salle "+b.name+" | "+d.type+" | "+d.make+" | "+d.model+" | "+d.ipAddress)})})'
-    but: 'À lancer en premier : ce que le TMS attend dans chaque salle.'
+    but: 'À lancer en premier sur un site inconnu : la liste de ce que le TMS attend dans chaque salle, avec les IP.'
+    detail: |
+      db.booths.find() → toutes les salles (booth = cabine)
+      .sort({number:1}) → dans l’ordre des numéros de salle
+      b.devices.forEach → pour chaque équipement de la salle
+      print(…) → une ligne : salle | type | marque | modèle | IP
+    exemple: |
+      salle 1 | PROJECTOR | Barco | DP4K-32B | 203.0.113.13
+      salle 1 | SERVER | Doremi | IMS3000 | 203.0.113.11
+      salle 1 | SOUND_PROCESSOR | Dolby | CP650 | 203.0.113.16
+    lecture: 'Ce sont les IP **virtuelles** vues par le TMS (traduites par l’ORC). Pour l’IP réelle en salle, voir « Correspondances d’une salle » sur l’ORC.'
+    voir: [correspondances-d-une-salle]
+    mots: [salles, équipements, ip, inventaire, booths]
 
   - id: quelle-salle-a-cette-ip
     titre: Quelle salle a cette IP ?
@@ -34,7 +54,11 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'db.booths.find({"devices.ipAddress":"{IP}"},{name:1,number:1}).forEach(printjson)'
-    but: Retrouver la salle à partir de l’IP d’une alerte.
+    but: 'Retrouver la salle à partir de l’IP d’une alerte.'
+    exemple: |
+      { "_id" : ObjectId("…"), "name" : "Salle 4", "number" : 4 }
+    lecture: 'Rien ne s’affiche = aucune salle n’a cette IP dans le TMS (faute de frappe, ou IP réelle au lieu de l’IP virtuelle).'
+    mots: [salle, ip, alerte]
 
   - id: bibliotheques-declarees
     titre: Bibliothèques déclarées
@@ -42,7 +66,9 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'db.library.find({},{name:1,protocol:1,managementIp:1,inboxPath:1}).forEach(printjson)'
-    but: LMS, Deluxe, Hyphen… avec leur IP et leur chemin.
+    but: 'LMS, Deluxe, Hyphen… : les sources de contenus que le TMS connaît, avec leur IP, leur protocole et leur dossier.'
+    lecture: '**managementIp** = où le TMS va chercher ; **inboxPath** = dossier de dépôt. C’est là qu’on trouve la valeur de la variable KDM_DIR.'
+    mots: [bibliothèque, library, lms, hyphen, inbox]
 
   - id: nombre-de-cpl-et-kdm
     titre: Nombre de CPL et KDM
@@ -50,15 +76,19 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet ytms --eval 'print("CPL: "+db.cpls.count()+" | KDM: "+db.kdms.count())'
-    but: Contrôle rapide avant et après un drop.
+    but: 'Deux compteurs pour contrôler avant et après une opération sur la base.'
+    exemple: |
+      CPL: 1843 | KDM: 5210
+    mots: [cpl, kdm, compter]
 
   - id: taille-de-la-base
     titre: Taille de la base
     machine: tms
     niveau: info
     commande: |-
-      mongo --quiet ytms --eval 'printjson(db.stats())'
-    but: Taille des données et des index.
+      mongo --quiet ytms --eval 'var s=db.stats(1024*1024); print("données "+s.dataSize.toFixed(0)+" Mo | index "+s.indexSize.toFixed(0)+" Mo | sur disque "+s.storageSize.toFixed(0)+" Mo")'
+    but: 'Taille des données et des index en Mo.'
+    mots: [taille, base, stats]
 
   - id: version-de-mongo
     titre: Version de Mongo
@@ -66,4 +96,7 @@ commandes:
     niveau: info
     commande: |-
       mongo --quiet --eval 'db.version()'
-    but: Utile pour un ticket N2.
+    but: 'Version du serveur Mongo : à indiquer dans un ticket N2.'
+    exemple: |
+      3.2.22
+    mots: [version, mongo]
