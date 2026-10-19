@@ -1,0 +1,9 @@
+// Déploiement Cloudflare Workers (Workers Builds) : site statique servi depuis dist/.
+// Build : npm run build · Déploiement : npx wrangler deploy
+{
+  "name": "meme-ssh-cabine",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}

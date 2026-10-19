@@ -19,6 +19,10 @@ Chaque commit sur `main` redéploie automatiquement. Si le contenu est invalide,
 
 Domaine personnalisé (facultatif) : dans le projet Pages → **Custom domains** → ajouter par exemple `memo.mondomaine.fr`.
 
+### Variante : projet Cloudflare Workers (Workers Builds)
+
+Si le projet a été créé dans **Workers** (commande de déploiement `npx wrangler deploy`) et non dans Pages, le fichier `wrangler.jsonc` à la racine du dépôt dit à Cloudflare de publier le dossier `dist/`. Sans lui, le déploiement échoue et le site reste sur l’ancienne version. Le champ `name` doit être identique au nom du projet dans Cloudflare.
+
 ## 2. Réserver l’accès à l’équipe (Cloudflare Access)
 
 Le mémo ne contient aucune donnée de site, mais il décrit l’infrastructure : il ne doit pas être public.
