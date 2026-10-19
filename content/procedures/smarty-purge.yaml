@@ -1,0 +1,33 @@
+id: smarty-purge
+theme: Supervision
+titre: 'Smarty : purger les bases'
+quand: 'Tableau de bord incohérent ou figé malgré une relance, erreurs de base dans les journaux.'
+symptomes: [smarty, base, smartydb, purge, corrompu]
+comprendre: |
+  Smarty garde son état dans /etc/ymagis/smartydb et le reconstruit au démarrage. On l’arrête d’abord pour qu’il n’écrive plus, on vide uniquement ce dossier, puis on relance en suivant les journaux.
+etapes:
+  - ref: se-connecter-au-yms
+  - ref: arreter-smarty
+  - ref: forcer-arret-poller
+    titre: Forcer l’arrêt (si besoin)
+  - titre: Contenu des bases
+    machine: yms
+    niveau: info
+    commande: |-
+      ls -la /etc/ymagis/smartydb/ ; du -sh /etc/ymagis/smartydb
+    attendu: 'Ce qui va être supprimé'
+  - titre: Purger (uniquement smartydb)
+    machine: yms
+    niveau: danger
+    commande: |-
+      cd /etc/ymagis/smartydb && rm -rf -- ./* ; ls -la
+    attendu: 'Dossier vide. Le cd protège : s’il échoue, rien n’est supprimé'
+  - ref: demarrer-smarty
+  - ref: journaux-smarty
+    titre: Suivre la reconstruction
+    attendu: 'Pas d’erreur en boucle. Ctrl+C pour sortir'
+  - titre: Navigateur
+    machine: man
+    consigne: 'Vider le cache ou relancer le navigateur avant de conclure.'
+attention: 'Ne supprimer que le contenu de /etc/ymagis/smartydb, jamais /etc/ymagis.'
+maj: 2026-10-19

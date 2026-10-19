@@ -11,6 +11,7 @@ export const FORMATS = {
   winif: { rx: /^[A-Za-z0-9 ._()-]{1,40}$/, aide: 'Nom de carte sans guillemet ni $' },
   uuid:  { rx: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, aide: 'UUID complet, ex. f542da64-80f9-49d2-927b-1eacdce80f13' },
   port:  { rx: /^([1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$/, aide: 'Port TCP entre 1 et 65535' },
+  code:  { rx: /^[a-z]{2}[a-z0-9]{2,12}$/, aide: 'Code site en minuscules, ex. frxxxx' },
   svc:   { rx: /^[a-z][a-z0-9@._-]{1,40}$/, aide: 'Nom de service systemd, ex. tomcat8' }
 };
 export function etatValeur(format, v) {

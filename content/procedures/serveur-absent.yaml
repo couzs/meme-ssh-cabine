@@ -1,0 +1,38 @@
+id: serveur-absent
+theme: Réseau
+titre: 'ORC / TMS injoignables : serveur absent du réseau cabine'
+quand: 'Depuis le PC cabine, « Destination Host Unreachable » vers la passerelle (.254) et le TMS, alors que projecteurs et serveurs de salle répondent.'
+symptomes: [destination host unreachable, orc injoignable, tms injoignable, vpn, serveur absent, drac, voyant disque]
+comprendre: |
+  « Unreachable » sur le même réseau veut dire que l’ARP échoue : la machine ne répond même pas en local. Ce n’est donc ni un pare-feu ni un routage. On prouve d’abord que le reste du réseau vit (le switch et le PC sont bons), on cherche une porte de secours (DRAC), puis on passe aux vérifications physiques.
+etapes:
+  - ref: interfaces-et-routes-du-pc
+    titre: Le PC est sur le réseau cabine ?
+    attendu: 'Une IP sur le réseau cabine sur la carte câblée'
+  - ref: joindre-l-orc
+    titre: L’ORC répond ?
+    attendu: 'Unreachable = absent du réseau local'
+  - ref: mac-de-l-equipement
+    titre: Une MAC pour l’ORC ?
+    attendu: 'Avec IP = adresse de l’ORC. FAILED = rien ne répond à cette adresse'
+  - ref: balayage-rapide-d-un-reseau
+    titre: Qui est vivant ?
+    attendu: 'Projecteurs, serveurs, JNIOR présents = switch et câblage cabine OK'
+  - ref: adresses-type-baie-ymagis
+    titre: Adresses de la baie
+    attendu: '.3 (DRAC) OK = le N3 peut prendre la main à distance'
+  - ref: identifier-un-equipement-inconnu
+    titre: Identifier un inconnu
+    attendu: '23 + 80 + page « Log In » = switch de baie'
+  - titre: Vérifications sur site
+    machine: man
+    consigne: 'Voyants d’alimentation et de disque du serveur, voyants des ports du switch de baie (1 à 10 sur le schéma type), câbles à l’arrière. Photo de l’écran en fin de démarrage, sans toucher au clavier.'
+  - titre: Redémarrage électrique
+    machine: man
+    niveau: action
+    consigne: 'Hors séance : appui long sur power, attendre 30 s, rallumer, attendre 5 min, puis refaire le ping.'
+  - titre: Escalade N3
+    machine: man
+    consigne: 'Joindre le résultat du balayage, les constats sur site et la photo de l’écran.'
+attention: 'Voyant disque éteint + BIOS qui s’affiche = serveur alimenté qui ne démarre pas son système : panne disque ou RAID probable (RMA via le N3). BIOS (F2) et menu de démarrage (F11) protégés : ne pas chercher à contourner. Ne rien valider dans l’utilitaire RAID.'
+maj: 2026-10-19

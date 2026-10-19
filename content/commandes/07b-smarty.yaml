@@ -1,0 +1,132 @@
+id: smarty
+titre: Smarty (YMS)
+groupe: TMS & Linux
+intro: 'Supervision Smarty, sur le YMS du site : tableau de bord, journaux, configuration des salles, bases. Renseigne SITE et SMARTY dans « Mon site ».'
+
+commandes:
+  - id: se-connecter-au-yms
+    titre: Se connecter au YMS
+    machine: lin
+    niveau: info
+    commande: |-
+      ssh sysadm@{SITE}yms0001.ymagis.net
+    but: 'Ouvre une session sur le YMS, le serveur qui héberge Smarty. Depuis ton poste ou depuis le TMS.'
+    detail: |
+      sysadm → l’utilisateur de connexion
+      {SITE}yms0001.ymagis.net → nom du YMS : code site + yms0001
+    lecture: 'Invite en sysadm@…yms0001 = connecté. Ensuite `sudo -i` pour les commandes d’administration.'
+    si_ko: 'Nom inconnu : vérifier le code site. Mot de passe refusé deux fois : arrêter et le demander.'
+    mots: [yms, smarty, ssh, supervision]
+    maj: 2026-10-19
+
+  - id: interface-smarty
+    titre: Interface Smarty
+    machine: man
+    niveau: info
+    commande: |-
+      http://{SMARTY}:8080/tms-ymagis-smarty/
+    but: 'Adresse du tableau de bord Smarty, à ouvrir dans le navigateur.'
+    lecture: 'Affichage faux alors que le serveur est sain (dashboard.xml frais) : vider le cache du navigateur ou le relancer.'
+    mots: [smarty, interface, navigateur, tableau de bord]
+    maj: 2026-10-19
+
+  - id: smarty-tourne
+    titre: Smarty tourne ?
+    machine: yms
+    niveau: info
+    commande: |-
+      echo "dashboard.xml : $(( $(date +%s) - $(stat -c %Y /var/www/dashboard.xml) )) s"
+    but: 'Âge du fichier dashboard.xml, que Smarty réécrit en continu et que l’interface affiche.'
+    detail: |
+      stat -c %Y → date de dernière modification du fichier, en secondes
+      date +%s → l’heure actuelle, en secondes
+      $(( … - … )) → la différence : l’âge du fichier
+    exemple: |
+      dashboard.xml : 2 s
+    attendu: 'Entre 0 et 5 s'
+    si_ko: 'Plus de 5 s = poller arrêté ou bloqué : regarder les journaux, puis relancer Smarty.'
+    mots: [smarty, dashboard, fraîcheur, figé]
+    maj: 2026-10-19
+
+  - id: process-smarty
+    titre: Process Smarty
+    machine: yms
+    niveau: info
+    commande: |-
+      ps faux | grep -i [s]marty
+    but: 'Liste les process Smarty. Le poller (smarty-poller) est celui qui interroge les salles.'
+    detail: |
+      ps faux → tous les process, en arbre
+      grep -i [s]marty → garde les lignes Smarty ; les crochets évitent d’afficher le grep lui-même
+    attendu: 'Une ligne smarty-poller'
+    mots: [smarty, poller, process]
+    maj: 2026-10-19
+
+  - id: journaux-smarty
+    titre: Journaux Smarty en direct
+    machine: yms
+    niveau: info
+    commande: |-
+      tail -f /tmp/smarty-*.log
+    but: 'Suit les journaux Smarty en temps réel. Ctrl+C pour sortir.'
+    mots: [smarty, log, journal]
+    maj: 2026-10-19
+
+  - id: erreurs-smarty
+    titre: Dernières erreurs Smarty
+    machine: yms
+    niveau: info
+    commande: |-
+      grep -hiE "error|exception" /tmp/smarty-*.log | tail -20
+    but: 'Les 20 dernières erreurs, pour trouver la cause sans lire tout le journal.'
+    lecture: 'Une erreur qui se répète donne la cause : salle injoignable, configuration, base.'
+    mots: [smarty, erreur, exception]
+    maj: 2026-10-19
+
+  - id: config-salles-smarty
+    titre: Configuration des salles Smarty
+    machine: yms
+    niveau: info
+    commande: |-
+      cat /etc/ymagis/smarty_theater_config.xml
+    but: 'Les salles que Smarty supervise. Fichier généré par Puppet à partir de Sarah.'
+    lecture: 'Comparer avec les salles réelles du site et avec un site qui fonctionne.'
+    attention: 'Ne jamais modifier ce fichier à la main : corriger Sarah, puis le faire régénérer (procédure « salles absentes »).'
+    mots: [smarty, salles, configuration, sarah, theater]
+    maj: 2026-10-19
+
+  - id: arreter-smarty
+    titre: Arrêter Smarty
+    machine: yms
+    niveau: action
+    commande: |-
+      /etc/init.d/smarty-tms stop ; sleep 3 ; ps faux | grep -i [s]marty-poller
+    but: 'Arrêt propre du service, puis vérification que le poller est bien parti.'
+    attendu: 'Aucune ligne smarty-poller'
+    si_ko: 'Le poller est encore là : « Forcer l’arrêt du poller ».'
+    mots: [smarty, stop, arrêt]
+    maj: 2026-10-19
+
+  - id: forcer-arret-poller
+    titre: Forcer l’arrêt du poller
+    machine: yms
+    niveau: danger
+    commande: |-
+      pkill -9 -f smarty-poller ; sleep 1 ; ps faux | grep -i [s]marty-poller
+    but: 'Tue le poller s’il survit à l’arrêt normal.'
+    detail: |
+      pkill -9 -f smarty-poller → tue tout process dont la ligne de commande contient smarty-poller
+    attendu: 'Aucune ligne'
+    attention: 'Seulement après « Arrêter Smarty ».'
+    mots: [smarty, kill, poller]
+    maj: 2026-10-19
+
+  - id: demarrer-smarty
+    titre: Démarrer Smarty
+    machine: yms
+    niveau: action
+    commande: |-
+      /etc/init.d/smarty-tms start
+    but: 'Démarre le service. Vérifier ensuite « Smarty tourne ? ».'
+    mots: [smarty, start, démarrer]
+    maj: 2026-10-19

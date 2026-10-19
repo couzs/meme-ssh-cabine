@@ -23,6 +23,7 @@ intro: Ce qu’on a appris à la dure.
 - FTP : toujours en binaire pour un DCP ou un fichier .jnior. Le mode ASCII modifie les fins de ligne et abîme les fichiers.
 - Un test d’écriture FTP se fait dans le dossier de dépôt (lms/), jamais à la racine.
 - Mot de passe refusé deux fois : arrêter et demander le bon, au lieu d’essayer au hasard (risque de blocage de l’IP).
+- BIOS ou menu de démarrage protégé par mot de passe : ne jamais chercher à le contourner (cavalier, reset). C’est au N3 ou au constructeur.
 
 ### Confidentialité
 

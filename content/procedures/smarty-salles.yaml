@@ -1,0 +1,35 @@
+id: smarty-salles
+theme: Supervision
+titre: 'Smarty : salles absentes ou mauvais nombre de salles'
+quand: 'Le tableau de bord n’affiche pas toutes les salles, ou en affiche trop.'
+symptomes: [smarty, salles manquantes, nombre de salles, sarah, puppet]
+comprendre: |
+  Smarty lit la liste des salles dans /etc/ymagis/smarty_theater_config.xml. Ce fichier est généré par Puppet à partir de Sarah, où sont déclarées les salles du site. Si Sarah est fausse, le fichier l’est aussi : on corrige Sarah, on arrête Smarty, puis on fait régénérer le fichier par Puppet.
+etapes:
+  - ref: se-connecter-au-yms
+  - ref: config-salles-smarty
+    titre: Salles déclarées
+  - titre: Corriger Sarah
+    machine: man
+    consigne: 'Déclarer les bonnes salles dans Sarah. Sans cette correction, Puppet régénère le même fichier faux.'
+  - ref: arreter-smarty
+  - ref: forcer-arret-poller
+    titre: Forcer l’arrêt (si besoin)
+  - titre: Mettre la configuration de côté
+    machine: yms
+    niveau: action
+    commande: |-
+      mv /etc/ymagis/smarty_theater_config.xml /root/smarty_theater_config.xml.$(date +%F_%H%M)
+    attendu: 'Copie gardée dans /root pour pouvoir revenir en arrière'
+  - titre: Régénérer avec Puppet
+    machine: yms
+    niveau: action
+    commande: |-
+      puppetd -t env=prod ; ls -l /etc/ymagis/smarty_theater_config.xml
+    attendu: 'Fichier recréé à l’heure actuelle. puppetd introuvable : demander la commande au N3'
+  - ref: demarrer-smarty
+  - ref: smarty-tourne
+    titre: Contrôle
+    attendu: '0 à 5 s, puis le bon nombre de salles dans l’interface'
+attention: 'Fichier géré par Puppet : ne jamais le corriger à la main.'
+maj: 2026-10-19

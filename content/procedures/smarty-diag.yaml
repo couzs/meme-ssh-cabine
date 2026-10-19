@@ -1,0 +1,26 @@
+id: smarty-diag
+theme: Supervision
+titre: 'Smarty : tableau de bord vide ou figé'
+quand: 'L’interface Smarty ne se met plus à jour, affiche des salles vides ou une erreur.'
+symptomes: [smarty, supervision, dashboard, figé, vide]
+comprendre: |
+  Smarty tourne sur le YMS : un poller interroge les salles et réécrit /var/www/dashboard.xml toutes les quelques secondes, et l’interface affiche ce fichier. S’il est frais, le serveur va bien et le souci est côté navigateur. S’il est vieux, le poller est arrêté ou bloqué, et les journaux disent pourquoi.
+etapes:
+  - ref: se-connecter-au-yms
+  - ref: smarty-tourne
+    titre: Fichier frais ?
+    attendu: '0 à 5 s = serveur OK : vider le cache du navigateur'
+  - ref: process-smarty
+  - ref: erreurs-smarty
+    titre: Erreurs récentes
+  - ref: config-salles-smarty
+    titre: Configuration
+    attendu: 'Toutes les salles du site présentes'
+  - ref: arreter-smarty
+    titre: Relance (arrêt)
+  - ref: demarrer-smarty
+    titre: Relance (démarrage)
+  - ref: smarty-tourne
+    titre: Contrôle
+attention: 'Mauvais nombre de salles : procédure « salles absentes ». Bases corrompues : procédure « purger les bases ».'
+maj: 2026-10-19

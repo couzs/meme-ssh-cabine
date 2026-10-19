@@ -265,3 +265,65 @@ commandes:
     attendu: '200 df /: size: … free: … (en octets)'
     attention: 'Ne jamais coller un bloc pendant la connexion : les invites avalent les lignes.'
     mots: [ftp, lms, espace, df]
+
+  - id: interfaces-et-routes-du-pc
+    titre: Interfaces et routes du PC
+    machine: lin
+    niveau: info
+    commande: |-
+      ip -br a ; ip route
+    but: 'Sur le PC cabine Linux : ses cartes réseau, leurs IP et par où sort le trafic.'
+    lecture: 'PC en double connexion (câble cabine + Wi-Fi de la box) : la route par défaut passe souvent par la box ; le réseau cabine reste joignable en direct par la carte câblée.'
+    mots: [pc, route, interfaces, wifi, box]
+    maj: 2026-10-19
+
+  - id: voisins-tries-avec-mac
+    titre: Voisins triés avec leur MAC
+    machine: lin
+    niveau: info
+    commande: |-
+      ip neigh | grep -v FAILED | awk '{print $1, $5}' | sort -V
+    but: 'Une ligne par équipement vu : IP et MAC, dans l’ordre des adresses. À lancer après un balayage.'
+    lecture: 'Le début de la MAC donne le fabricant : voir « Repères baie Ymagis ».'
+    voir: [balayage-rapide-d-un-reseau, baie-ymagis]
+    mots: [mac, fabricant, inventaire, oui]
+    maj: 2026-10-19
+
+  - id: adresses-type-baie-ymagis
+    titre: Adresses type d’une baie Ymagis
+    machine: lin
+    niveau: info
+    commande: |-
+      for ip in 3 4 5 6 9 11 13 16 231 232 233 240 253 254; do ping -c1 -W1 {NET}.$ip >/dev/null 2>&1 && echo "{NET}.$ip OK" || echo "{NET}.$ip --"; done
+    but: 'Teste les adresses du schéma type : DRAC, TCS, YMS, TMS, salle 1, poste de gestion, switch, passerelle.'
+    lecture: '**.3 OK** = DRAC joignable : le N3 peut prendre la main sur le serveur même s’il est planté. Tout à « -- » côté serveur alors que les salles répondent = serveur absent du réseau.'
+    attention: 'Schéma type : les adresses peuvent varier d’un site à l’autre.'
+    voir: [baie-ymagis, serveur-absent]
+    mots: [drac, yms, tcs, soekris, baie, schéma]
+    maj: 2026-10-19
+
+  - id: identifier-un-equipement-inconnu
+    titre: Identifier un équipement inconnu (ports)
+    machine: lin
+    niveau: info
+    commande: |-
+      for p in 22 23 80 161 443 623 3389 5900 8080 8443; do timeout 2 bash -c "</dev/tcp/{IP}/$p" 2>/dev/null && echo "$p ouvert" || echo "$p fermé"; done
+    but: 'Les ports ouverts trahissent le type d’équipement, sans nmap ni nc.'
+    lecture: |
+      - 23 + 80 = switch ou boîtier (souvent un switch Dell si la MAC est Dell)
+      - 443 + 623 = DRAC / iDRAC
+      - 22 seul = Linux
+      - 3389 = Windows, 5900 = VNC
+    mots: [inconnu, ports, identifier, switch, drac]
+    maj: 2026-10-19
+
+  - id: titre-de-la-page-web
+    titre: Titre de la page web
+    machine: lin
+    niveau: info
+    commande: |-
+      wget -qO- --timeout=5 http://{IP} | grep -io "<title>[^<]*"
+    but: 'Le titre de l’interface web, quand curl est absent : il nomme souvent le modèle.'
+    lecture: '« Log In » sur une MAC Dell = souvent le switch de la baie : son interface montre l’état de chaque port (identifiants auprès du N3).'
+    mots: [web, titre, wget, identifier]
+    maj: 2026-10-19

@@ -1,5 +1,13 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
+- date: 2026-10-19
+  titre: Smarty, baie Ymagis et serveur absent du réseau
+  texte: |
+    - Nouvelle rubrique « Smarty (YMS) » et filtre machine YMS : connexion, fraîcheur du tableau de bord, journaux, arrêt et relance.
+    - Procédures Smarty : tableau de bord figé, salles absentes (Sarah + Puppet), purge des bases.
+    - Procédure « ORC / TMS injoignables : serveur absent du réseau cabine », avec les vérifications sur site.
+    - Repères baie Ymagis : adresses type, ports du switch, fabricant d’après la MAC, serveur Dell (F2/F11, DRAC).
+    - Variables SITE (code site) et SMARTY dans « Mon site ».
 - date: 2026-10-18
   titre: Nouvelle rubrique « Fichiers & transferts »
   texte: |

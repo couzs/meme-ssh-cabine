@@ -2,6 +2,18 @@
 # format : ip, net3, mac, iface, path, film, winif, uuid (voir docs/MODIFIER-LE-CONTENU.md)
 
 
+# --- Site ---
+- cle: SITE
+  libelle: Code site (minuscules, sert aux noms de machines)
+  groupe: Site
+  format: code
+  exemple: frexmp
+- cle: SMARTY
+  libelle: IP de l’interface Smarty
+  groupe: Site
+  format: ip
+  exemple: 192.0.2.60
+
 # --- Équipement ---
 - cle: IP
   libelle: Équipement ciblé

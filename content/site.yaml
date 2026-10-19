@@ -1,6 +1,6 @@
 # Réglages généraux du Mémo SSH Cabine.
 titre: Mémo SSH Cabine
-sous_titre: TMS · ORC · LMS · Doremi · Barco · JNIOR
+sous_titre: TMS · ORC · LMS · YMS · Doremi · Barco · JNIOR
 
 # Dépôt GitHub : sert aux liens « Modifier cette fiche » (l’édition se fait sur GitHub, la mise en ligne est automatique).
 depot: couzs/meme-ssh-cabine
@@ -18,6 +18,7 @@ machines:
   tms: { label: TMS, desc: "Serveur central du cinéma (Ubuntu) : planning, KDM, supervision. On s’y connecte en premier." }
   orc: { label: ORC, desc: "Routeur du site : NAT vers les salles, réseaux de gestion et d’ingest. Seule machine avec tcpdump." }
   lms: { label: LMS, desc: "Bibliothèque des films : TCS (Ubuntu) ou LMS Debian (FTP)." }
+  yms: { label: YMS, desc: "Serveur de supervision Ymagis du site : héberge Smarty. Connexion en sysadm@<codesite>yms0001.ymagis.net." }
   lin: { label: Linux, desc: "Commande Linux générique : fonctionne sur le TMS, l’ORC et le LMS." }
   dor: { label: Doremi, desc: "Serveur de salle Doremi (DCP2000, ShowVault, IMS). Système réduit : pas de nc, timeout, base64 ni curl." }
   jnr: { label: JNIOR, desc: "Boîtier d’automation en telnet. Une seule commande à la fois." }
@@ -31,7 +32,7 @@ niveaux:
   danger: { label: risque,  desc: "Coupe un service ou supprime des données. Double clic de confirmation, accord du client si besoin." }
 
 # Ordre des thèmes de procédures
-themes: [TMS & KDM, Stockage, DCP & ingest, Automation, Réseau, Système]
+themes: [TMS & KDM, Supervision, Stockage, DCP & ingest, Automation, Réseau, Système]
 
 # Ordre des groupes du menu
 groupes: [Apprendre, TMS & Linux, Réseau, Stockage, Salle, PC, Repères]

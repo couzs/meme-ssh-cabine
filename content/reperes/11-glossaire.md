@@ -35,3 +35,9 @@ intro: Les mots du métier en une ligne, pour lire les procédures sans se perdr
 | FTP (ASCII / binaire) | Transfert de fichiers. Toujours en binaire pour un DCP ou un .jnior : le mode ASCII modifie les fins de ligne. |
 | Puppet | Outil qui impose la configuration des machines : une modification locale peut être écrasée. |
 | N3 | Support niveau 3 : à solliciter pour toute modification d’un fichier géré par Puppet. |
+| YMS | Serveur de supervision Ymagis du site. Héberge Smarty. |
+| Smarty | Tableau de bord de supervision des salles, sur le YMS : le fichier dashboard.xml est réécrit toutes les quelques secondes. |
+| Sarah | Référentiel où sont déclarés le site et ses salles. Puppet s’en sert pour générer la configuration Smarty. |
+| Soekris | Petit routeur des anciennes baies Ymagis : passerelle .254, reliée au modem. Remplacé par l’ORC sur les sites récents. |
+| DRAC / iDRAC | Carte d’administration à distance d’un serveur Dell : état matériel, RAID, console. Répond même si le système est planté. |
+| POST | Auto-test au démarrage d’un PC ou d’un serveur, avant le système. BIOS affiché = POST passé. |
