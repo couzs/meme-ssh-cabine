@@ -1,0 +1,164 @@
+id: vpn
+titre: VPN du site (OpenVPN)
+groupe: Réseau
+intro: 'L’ORC monte un tunnel OpenVPN vers Ymagis : c’est lui qui permet l’accès à distance et les remontées de supervision. Un tunnel « actif » ne veut pas dire qu’il passe du trafic : on compare ce qui entre et ce qui revient.'
+
+commandes:
+  - id: service-vpn
+    titre: Le VPN tourne ?
+    machine: orc
+    niveau: info
+    commande: |-
+      ps faux | grep -iE '[o]penvpn|[s]trongswan|[c]haron|[w]ireguard' | head ; systemctl list-units --type=service --state=running | grep -iE 'vpn|ipsec|swan|wireguard'
+    but: 'Repère le service VPN et son nom exact (utile pour les journaux et la relance).'
+    detail: |
+      ps faux | grep -iE '[o]penvpn|…' → process VPN ; les crochets évitent d’afficher le grep
+      systemctl list-units … | grep → service systemd correspondant
+    exemple: |
+      root  3916  0.0  0.0  36656  7140 ?  Ss  Jun29  118:51 /usr/sbin/openvpn --daemon ovpn-nom --status /run/openvpn/nom.status 10 …
+      openvpn@nom.service   loaded active running OpenVPN connection to nom
+    lecture: |
+      - Le nom après `openvpn@` est celui à mettre dans la variable **Service systemd**.
+      - Aucun process = VPN arrêté.
+      - Process présent = **pas une preuve** que le tunnel passe du trafic : voir « Statut OpenVPN ».
+    voir: [interface-du-tunnel, statut-openvpn]
+    mots: [vpn, openvpn, tunnel, service]
+    maj: 2026-10-20
+
+  - id: interface-du-tunnel
+    titre: Interface et routes du tunnel
+    machine: orc
+    niveau: info
+    commande: |-
+      ip -br a | grep -iE 'tun|tap|ppp|wg' ; ip route | grep -E 'dev (tun|tap|ppp|wg)'
+    but: 'Le tunnel a-t-il une interface (tun…) et des routes vers le réseau Ymagis ?'
+    exemple: |
+      tun1   UNKNOWN   198.51.100.186 peer 198.51.100.185/32
+      198.51.100.185 dev tun1 proto kernel scope link src 198.51.100.186
+      203.0.113.0/24 via 198.51.100.185 dev tun1
+    lecture: |
+      - **peer** = l’autre bout du tunnel (le serveur VPN).
+      - Une interface présente ne prouve rien : OpenVPN la garde même quand la liaison est tombée.
+      - L’adresse du tunnel change à chaque reconnexion.
+    mots: [tun, tunnel, routes, peer]
+    maj: 2026-10-20
+
+  - id: ping-pair-du-tunnel
+    titre: Le pair du tunnel répond ?
+    machine: orc
+    niveau: info
+    commande: |-
+      ping -c 3 -W 2 $(ip route | awk '/dev (tun|tap|ppp)/ && /scope link/ {print $1; exit}')
+    but: 'Teste l’autre bout du tunnel (le serveur VPN) : le plan de données passe-t-il ?'
+    detail: |
+      ip route | awk '/dev (tun|tap|ppp)/ && /scope link/ {print $1; exit}' → adresse du pair, lue dans la route du tunnel
+      ping -c 3 -W 2 → 3 essais
+    attendu: '0% packet loss'
+    lecture: |
+      - **Pair OK** mais rien au-delà (réseau Ymagis muet) = le serveur VPN ne route pas ou ne renvoie pas : côté Ymagis, à escalader au N3.
+      - **Pair muet** alors que le service tourne = tunnel mort malgré l’interface.
+    voir: [statut-openvpn, capture-du-tunnel]
+    mots: [ping, pair, tunnel, vpn]
+    maj: 2026-10-20
+
+  - id: statut-openvpn
+    titre: Statut OpenVPN (octets entrés / revenus)
+    machine: orc
+    niveau: info
+    commande: |-
+      sudo sh -c 'date ; ls -l --time-style=full-iso /run/openvpn/*.status ; cat /run/openvpn/*.status'
+    but: 'Le fichier de statut, réécrit toutes les 10 secondes, compte les octets échangés. Il montre si le trafic revient.'
+    detail: |
+      date → heure actuelle, à comparer avec la date du fichier
+      ls -l --time-style=full-iso → date exacte du fichier de statut
+      cat … → son contenu
+    exemple: |
+      TUN/TAP read bytes,8033791
+      TUN/TAP write bytes,2384
+      TCP/UDP read bytes,565232
+      TCP/UDP write bytes,13861139
+    lecture: |
+      - **TUN/TAP read** = ce qui entre dans le tunnel depuis le LAN. **TUN/TAP write** = ce qui revient vers le LAN.
+      - read de plusieurs Mo et write de quelques Ko = **les données partent et rien ne revient** : le tunnel est « vivant » pour OpenVPN mais mort pour le trafic. Cause côté serveur VPN ou réseau Ymagis.
+      - Fichier plus vieux que quelques secondes = service bloqué.
+    voir: [capture-du-tunnel, ping-pair-du-tunnel]
+    mots: [statut, octets, tun/tap, trafic, vpn]
+    maj: 2026-10-20
+
+  - id: coupures-du-vpn
+    titre: Historique des coupures du VPN
+    machine: orc
+    niveau: info
+    commande: |-
+      sudo journalctl -u {SVC} --no-pager --since "7 days ago" | grep -E "TLS Error|Inactivity|Initialization Sequence Completed" | tail -50
+    but: 'Quand le tunnel a-t-il décroché, combien de temps, et à quel rythme ? Une coupure qui revient à heure fixe est un indice.'
+    detail: |
+      journalctl -u SERVICE --since "7 days ago" → journal du service sur 7 jours
+      grep -E "TLS Error|Inactivity|Initialization Sequence Completed" → coupures et remontées
+    exemple: |
+      Oct 19 10:29:07 … TLS Error: TLS key negotiation failed to occur within 60 seconds
+      Oct 19 10:40:13 … Initialization Sequence Completed
+    lecture: |
+      - **TLS key negotiation failed** : les paquets UDP n’arrivent plus ; une ligne par minute = tentative de reconnexion en échec.
+      - **Inactivity timeout (--ping-restart)** : plus aucune réponse du serveur, OpenVPN redémarre.
+      - **Initialization Sequence Completed** : le tunnel est remonté. Compter le temps entre une coupure et cette ligne.
+    voir: [journal-du-vpn]
+    mots: [coupure, historique, tls, ping-restart]
+    maj: 2026-10-20
+
+  - id: journal-du-vpn
+    titre: Journal du VPN
+    machine: orc
+    niveau: info
+    commande: |-
+      sudo journalctl -u {SVC} --no-pager -n 40
+    but: 'Les 40 dernières lignes du service VPN : connexion, erreurs d’authentification ou de certificat, reconnexions.'
+    lecture: |
+      - **AUTH_FAILED** ou certificat expiré : accès révoqué, à escalader au N3.
+      - **Peer Connection Initiated** puis **Initialization Sequence Completed** : tunnel monté.
+      - **Preserving recently used remote address** : OpenVPN essaie un autre serveur de la liste.
+    si_ko: 'journalctl vide : `sudo grep -i ovpn /var/log/syslog | tail -40`.'
+    mots: [journal, openvpn, logs]
+    maj: 2026-10-20
+
+  - id: capture-du-tunnel
+    titre: Trafic dans le tunnel (tcpdump)
+    machine: orc
+    niveau: info
+    commande: |-
+      sudo timeout 30 tcpdump -ni $(ip -br a | awk '/^(tun|tap)/ {print $1; exit}') -c 20 2>&1 | tail -25
+    but: 'Regarde 20 paquets qui traversent le tunnel, dans les deux sens : le trafic part-il, les réponses reviennent-elles ?'
+    detail: |
+      timeout 30 → s’arrête au bout de 30 s
+      tcpdump -ni INTERFACE -c 20 → capture 20 paquets sur le tunnel, sans résoudre les noms
+      ip -br a | awk '/^(tun|tap)/ {print $1; exit}' → nom de l’interface du tunnel
+    exemple: |
+      14:00:21.897 IP 192.0.2.5.60415 > 198.51.100.105.53: A? exemple.ymagis.net.
+      14:00:22.463 IP 192.0.2.41.37424 > 198.51.100.192.10051: Flags [S], seq 3531369258
+      14:00:26.562 IP 192.0.2.41.37424 > 198.51.100.192.10051: Flags [S], seq 3531369258
+    lecture: |
+      - Que des paquets **sortants** : mêmes requêtes DNS répétées, même connexion (même `seq`) renvoyée sans réponse = **aucun retour**.
+      - tcpdump voit les paquets **avant** les règles du pare-feu local : une réponse absente ici n’est jamais arrivée jusqu’à l’ORC. Ce n’est donc pas son pare-feu.
+    attention: 'À faire pendant que quelqu’un tente de joindre le site, sinon seul le trafic de supervision apparaît.'
+    voir: [statut-openvpn, ping-pair-du-tunnel]
+    mots: [tcpdump, tunnel, capture, retour]
+    maj: 2026-10-20
+
+  - id: relancer-le-vpn
+    titre: Relancer le VPN
+    machine: orc
+    niveau: danger
+    commande: |-
+      sudo systemctl restart {SVC} ; sleep 20 ; systemctl is-active {SVC} ; sudo journalctl -u {SVC} --no-pager -n 5
+    but: 'Force une session propre avec le serveur VPN. Corrige un tunnel « vivant » qui ne passe plus de trafic.'
+    detail: |
+      systemctl restart SERVICE → arrête puis redémarre le VPN
+      sleep 20 → laisse le temps de se reconnecter
+      systemctl is-active SERVICE → vérifie le service
+      journalctl -u SERVICE -n 5 → dernières lignes
+    attendu: 'active, puis « Initialization Sequence Completed » dans le journal'
+    si_ko: 'Pas de remontée : relire « Journal du VPN » et escalader au N3 avec les messages.'
+    attention: 'Coupe le tunnel quelques secondes pour tout le site : à faire avec l’accord du N3 ou du client. Ne modifie aucun fichier de configuration (gérés par Puppet).'
+    voir: [coupures-du-vpn]
+    mots: [vpn, relancer, restart, openvpn]
+    maj: 2026-10-20

@@ -59,7 +59,7 @@ Pour une valeur qui change d’un site à l’autre, utiliser une variable entre
 
 - Liste des variables : `content/variables.yaml`.
 - Nouvelle variable : ajouter un bloc dans ce fichier (`cle`, `libelle`, `groupe`, `format`, `exemple`).
-- Formats disponibles : `ip`, `net3` (3 octets), `mac`, `iface`, `path`, `film`, `winif`, `uuid`, `port`, `svc`.
+- Formats disponibles : `ip`, `net3` (3 octets), `mac`, `iface`, `path`, `film`, `winif`, `uuid`, `port`, `code`, `host`, `svc`.
 
 **Aucune donnée réelle de site** dans le contenu : pas d’IP, de nom de cinéma ou de mot de passe. Le build refuse toute IP écrite en dur hors des adresses de documentation (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`) et des exemples déclarés dans `site.yaml`.
 

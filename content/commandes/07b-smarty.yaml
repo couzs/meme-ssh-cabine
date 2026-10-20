@@ -1,7 +1,7 @@
 id: smarty
 titre: Smarty (YMS)
 groupe: TMS & Linux
-intro: 'Supervision Smarty, sur le YMS du site : tableau de bord, journaux, configuration des salles, bases. Renseigne SITE et SMARTY dans « Mon site ».'
+intro: 'Supervision Smarty : tableau de bord, journaux, configuration des salles, bases. Selon le site, Smarty tourne sur le YMS (poller, dashboard.xml) ou dans le Tomcat du TMS (application tms-ymagis-smarty) : commencer par « Où tourne Smarty ? ». Renseigne SITE et SMARTY dans « Mon site ».'
 
 commandes:
   - id: se-connecter-au-yms
@@ -130,3 +130,91 @@ commandes:
     but: 'Démarre le service. Vérifier ensuite « Smarty tourne ? ».'
     mots: [smarty, start, démarrer]
     maj: 2026-10-19
+
+  - id: ou-tourne-smarty
+    titre: Où tourne Smarty ?
+    machine: lin
+    niveau: info
+    commande: |-
+      find / -iname '*smarty*' -not -path '/proc/*' 2>/dev/null | head -20
+    but: 'Retrouve Smarty sur la machine où tu es : à lancer sur le YMS, puis sur le TMS si rien n’apparaît.'
+    detail: |
+      find / -iname '*smarty*' → cherche tout fichier dont le nom contient smarty
+      -not -path '/proc/*' → ignore le dossier système /proc
+      2>/dev/null | head -20 → masque les refus d’accès, garde 20 lignes
+    exemple: |
+      /usr/share/tms-ymagis-smarty
+      /etc/tms-ymagis-smarty
+      /etc/tomcat8/Catalina/localhost/tms-ymagis-smarty.xml
+      /usr/share/vim/vim80/syntax/smarty.vim
+    lecture: |
+      - **tms-ymagis-smarty** (paquet, /etc/tomcat8/…) = Smarty est une **application Tomcat sur le TMS** : pas de service à lui, pas de smarty-poller, pas de dashboard.xml. Relancer Smarty revient à recharger l’application ou redémarrer Tomcat.
+      - `smarty.vim` est un fichier de coloration de Vim : faux positif, sans rapport.
+      - Rien d’autre sur le YMS ni sur le TMS = Smarty est ailleurs (serveur central) ou absent : demander au N3.
+    voir: [smarty-ecoute-8080, smarty-diag, smarty-tms]
+    mots: [smarty, où, installé, tomcat, webapp]
+    maj: 2026-10-20
+
+  - id: smarty-ecoute-8080
+    titre: Smarty écoute sur le TMS ?
+    machine: tms
+    niveau: info
+    commande: |-
+      ss -tlnp | grep -E ':8080|:8081'
+    but: 'Tomcat (8080) sert l’interface Smarty du TMS à l’adresse :8080/tms-ymagis-smarty/. Le port est-il ouvert ?'
+    exemple: |
+      LISTEN 0 100 0.0.0.0:8080 0.0.0.0:* users:(("java",pid=28902,fd=63))
+      LISTEN 0 50  0.0.0.0:8081 0.0.0.0:* users:(("java",pid=28799,fd=27))
+    lecture: '8080 = Tomcat (interface du TMS et Smarty). 8081 = un autre service Java du TMS. Pas de 8080 = Tomcat arrêté.'
+    voir: [page-smarty-repond]
+    mots: [smarty, 8080, tomcat, port]
+    maj: 2026-10-20
+
+  - id: page-smarty-repond
+    titre: La page Smarty répond ?
+    machine: tms
+    niveau: info
+    commande: |-
+      wget -S --spider -T 10 http://127.0.0.1:8080/tms-ymagis-smarty/ 2>&1 | head -6
+    but: 'Interroge Smarty depuis le TMS lui-même : l’application est-elle déployée et en bonne santé ?'
+    detail: |
+      wget --spider → demande la page sans la télécharger
+      -S → affiche les en-têtes de réponse
+      -T 10 → abandonne après 10 s
+    lecture: |
+      - **200 OK** : Smarty répond : un affichage faux vient du navigateur (vider le cache) ou des données.
+      - **404** ou **500** : application mal déployée ou en erreur : lire le journal.
+      - Pas de réponse : Tomcat arrêté ou bloqué.
+    si_ko: 'wget absent : ne pas l’installer, utiliser « Test de port avec code de retour » sur 127.0.0.1:8080.'
+    mots: [smarty, page, wget, 200, 404]
+    maj: 2026-10-20
+
+  - id: journal-smarty-tomcat
+    titre: Journal Smarty dans Tomcat
+    machine: tms
+    niveau: info
+    commande: |-
+      sudo grep -i smarty /var/log/tomcat8/catalina.out | tail -30
+    but: 'Les dernières lignes de journal qui parlent de Smarty, quand il tourne dans Tomcat.'
+    lecture: 'Une erreur qui se répète (salle injoignable, base, configuration) donne la cause.'
+    voir: [erreurs-tomcat-sans-les-piles]
+    mots: [smarty, journal, catalina, tomcat]
+    maj: 2026-10-20
+
+  - id: recharger-smarty-tomcat
+    titre: Recharger l’application Smarty (sans Tomcat)
+    machine: tms
+    niveau: action
+    commande: |-
+      sudo touch /etc/tomcat8/Catalina/localhost/tms-ymagis-smarty.xml ; sleep 20 ; sudo grep -i smarty /var/log/tomcat8/catalina.out | tail -10
+    but: 'Option douce : change la date du fichier de déploiement pour que Tomcat recharge seulement Smarty, sans toucher au reste du TMS.'
+    detail: |
+      touch FICHIER → met à jour la date du fichier, pas son contenu
+      sleep 20 → laisse Tomcat réagir
+      grep … | tail -10 → cherche des lignes de redéploiement de Smarty
+    attendu: 'Des lignes de redéploiement de tms-ymagis-smarty dans le journal'
+    si_ko: 'Aucune ligne de redéploiement : le déploiement automatique n’est pas actif sur ce site. Passer à « Relancer l’interface web (Tomcat) », avec accord.'
+    attention: 'Non confirmé sur tous les sites : dépend du déploiement automatique de Tomcat. Le fichier est géré par Puppet : seule sa date change, jamais son contenu.'
+    voir: [relancer-l-interface-web]
+    mots: [smarty, recharger, redéployer, tomcat]
+    maj: 2026-10-20

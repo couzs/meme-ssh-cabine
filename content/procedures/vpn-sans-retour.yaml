@@ -1,0 +1,31 @@
+id: vpn-sans-retour
+theme: Réseau
+titre: 'Accès distant impossible alors que le VPN « tourne »'
+quand: 'Le client accède à ses équipements mais pas nous à distance, ou la supervision ne remonte plus, alors que le service VPN de l’ORC est actif.'
+symptomes: [vpn, openvpn, accès distant, tunnel, supervision, puppet, dns, tun1, pas de retour]
+comprendre: |
+  OpenVPN garde l’interface du tunnel même quand la liaison est tombée : « actif » ne prouve pas que le trafic passe. On compare ce qui entre dans le tunnel et ce qui revient, puis on regarde l’historique des coupures. Des données qui partent sans retour = défaut côté serveur VPN ou réseau Ymagis, à escalader.
+etapes:
+  - ref: service-vpn
+    attendu: 'Un process openvpn et son nom de service'
+  - ref: interface-du-tunnel
+    attendu: 'Interface tun, adresse et routes'
+  - ref: ping-pair-du-tunnel
+    attendu: '0 % de perte'
+  - ref: statut-openvpn
+    attendu: 'TUN/TAP write du même ordre que read. Quelques Ko contre des Mo = pas de retour'
+  - ref: coupures-du-vpn
+    attendu: 'Coupures espacées ou régulières ?'
+  - ref: capture-du-tunnel
+    attendu: 'Des réponses visibles, pas seulement des paquets sortants'
+  - ref: sortie-internet-du-serveur
+    titre: L’ORC sort vers Internet ?
+    attendu: 'code=0 ; deux 124 = pas d’Internet, le tunnel ne peut pas se monter'
+  - titre: Escalade N3
+    machine: man
+    consigne: 'Joindre le statut OpenVPN (octets entrés et revenus), l’extrait de capture, l’historique des coupures et le nom des serveurs VPN concernés.'
+  - ref: relancer-le-vpn
+    titre: Relance (avec accord)
+    attendu: 'active, puis tunnel remonté et accès rétabli'
+attention: 'Relancer le VPN coupe le tunnel pour tout le site : accord du N3 ou du client. Aucun fichier de configuration n’est modifié (gérés par Puppet).'
+maj: 2026-10-20

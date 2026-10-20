@@ -1,0 +1,28 @@
+id: plugin-distant-timeout
+theme: TMS & KDM
+titre: 'Plugin du TMS (POS, export…) : « connect timed out »'
+quand: 'Le test d’un plugin affiche SocketTimeoutException : connect timed out, suivi de NullPointerException sur les films ou les séances.'
+symptomes: [plugin, pos, billetterie, export, sockettimeout, connect timed out, nullpointerexception, séances]
+comprendre: |
+  Le plugin va chercher ses données sur un serveur distant. Le timeout dit qu’aucune réponse n’arrive. Les NullPointerException qui suivent sont des conséquences : le plugin n’a rien reçu et plante sur des données vides. On cherche donc où la liaison casse : nom, passerelle, sortie Internet, port du serveur distant.
+etapes:
+  - ref: erreurs-tomcat-sans-les-piles
+    titre: Erreurs récentes
+    attendu: 'Le message du plugin et l’heure du test'
+  - ref: resolution-dns-d-un-nom
+    titre: Le nom se résout ?
+    attendu: 'Une adresse et code=0'
+  - ref: passerelle-par-defaut-joignable
+    titre: Le routeur répond ?
+    attendu: '0 % de perte'
+  - ref: sortie-internet-du-serveur
+    titre: Le TMS sort vers Internet ?
+    attendu: 'code=0. Deux 124 = aucune sortie Internet'
+  - ref: test-port-avec-code-retour
+    titre: Le serveur du plugin
+    attendu: 'code=0'
+  - titre: Prévenir le client ou escalader
+    machine: man
+    consigne: 'Pas de sortie Internet : le client vérifie routeur ou box, depuis quand et tout changement récent (box, fournisseur, adresse publique). Sortie OK mais serveur du plugin muet : contacter l’éditeur (blocage possible de l’adresse du site). Ne rien modifier sur le TMS.'
+attention: 'curl est souvent absent du TMS : utiliser les tests de port en bash. Plugin Publicinex et autres FTP en échec en même temps = même cause : la sortie Internet du site.'
+maj: 2026-10-20

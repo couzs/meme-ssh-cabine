@@ -1,5 +1,13 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
+- date: 2026-10-20
+  titre: Sortie Internet, VPN de l’ORC et Smarty sur le TMS
+  texte: |
+    - Nouvelle rubrique « VPN du site (OpenVPN) » : service, interface du tunnel, pair, statut (octets entrés et revenus), historique des coupures, capture dans le tunnel, relance.
+    - Réseau : résolution DNS, passerelle par défaut, sortie Internet du serveur, test de port avec code de retour (expiré ou refusé).
+    - Smarty : « Où tourne Smarty ? ». Sur certains sites il est une application Tomcat du TMS, sans service smarty-tms ni dashboard.xml.
+    - Procédures : plugin du TMS en « connect timed out », accès distant impossible alors que le VPN tourne, Smarty sur le TMS, salle absente de Smarty parce qu’elle ne répond pas.
+    - Nouvelle variable « Nom ou IP d’un serveur distant » (HOTE) ; glossaire et règles complétés.
 - date: 2026-10-19
   titre: Smarty, baie Ymagis et serveur absent du réseau
   texte: |

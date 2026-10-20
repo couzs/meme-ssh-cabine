@@ -23,6 +23,10 @@ intro: Ce qu’on a appris à la dure.
 - FTP : toujours en binaire pour un DCP ou un fichier .jnior. Le mode ASCII modifie les fins de ligne et abîme les fichiers.
 - Un test d’écriture FTP se fait dans le dossier de dépôt (lms/), jamais à la racine.
 - Mot de passe refusé deux fois : arrêter et demander le bon, au lieu d’essayer au hasard (risque de blocage de l’IP).
+- Vérifier le nom de la machine dans l’invite (`root@…tms0000`, `…orc0001`, `…yms0001`) avant de lancer une commande : le même test lancé sur la mauvaise machine donne un résultat vrai mais trompeur.
+- Ne pas copier une commande depuis un message où un nom de domaine s’est transformé en lien (`[nom](https://…)`) : le lien se colle dans la commande et la casse. Retaper le nom.
+- `curl` est souvent absent du TMS et de l’ORC : tester un port avec `bash -c 'echo > /dev/tcp/HÔTE/PORT'` ; ne pas installer de paquet pour un diagnostic.
+- Un service « actif » ou une interface « UP » ne prouve pas que le trafic passe : comparer les octets entrés et revenus, ou capturer le trafic.
 - BIOS ou menu de démarrage protégé par mot de passe : ne jamais chercher à le contourner (cavalier, reset). C’est au N3 ou au constructeur.
 
 ### Confidentialité
@@ -34,6 +38,8 @@ intro: Ce qu’on a appris à la dure.
 ### Ticket
 
 - Jamais de mot de passe dans un ticket. Un mot de passe tapé par erreur dans le champ identifiant reste en clair dans les journaux du serveur : le faire changer.
+- Une salle absente de Smarty est le plus souvent injoignable sur le réseau : le prouver depuis le TMS avant de relancer quoi que ce soit.
+- Redémarrer Tomcat coupe tout le TMS (plugins compris) : accord du client, hors séance.
 - Un problème trouvé dans une salle peut exister dans les autres : vérifier rapidement les salles voisines.
 - Noter tout paquet installé sur une machine de prod (ftp, mongodb-clients, nmap…) et tout fichier modifié avec sa sauvegarde.
 - Gmail : mot de passe d’application obligatoire avec la validation en deux étapes. Outlook.com : plus de connexion IMAP par mot de passe.

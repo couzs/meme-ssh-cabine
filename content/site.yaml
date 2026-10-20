@@ -12,13 +12,16 @@ contact: ''
 # Le build refuse toute autre IP écrite en dur : aucune donnée réelle de site ne doit entrer dans l’outil.
 ip_autorisees:
   - 192.168.100.*
+  # Résolveurs publics, cibles d’un test de sortie Internet : pas des données de site.
+  - 1.1.1.1
+  - 8.8.8.8
 
 # Machines : code utilisé dans les fiches → nom affiché et description.
 machines:
   tms: { label: TMS, desc: "Serveur central du cinéma (Ubuntu) : planning, KDM, supervision. On s’y connecte en premier." }
   orc: { label: ORC, desc: "Routeur du site : NAT vers les salles, réseaux de gestion et d’ingest. Seule machine avec tcpdump." }
   lms: { label: LMS, desc: "Bibliothèque des films : TCS (Ubuntu) ou LMS Debian (FTP)." }
-  yms: { label: YMS, desc: "Serveur de supervision Ymagis du site : héberge Smarty. Connexion en sysadm@<codesite>yms0001.ymagis.net." }
+  yms: { label: YMS, desc: "Serveur Ymagis du site : héberge Smarty sur certains sites (sur d’autres, Smarty est dans le Tomcat du TMS : voir « Où tourne Smarty ? »). Connexion en sysadm@<codesite>yms0001.ymagis.net." }
   lin: { label: Linux, desc: "Commande Linux générique : fonctionne sur le TMS, l’ORC et le LMS." }
   dor: { label: Doremi, desc: "Serveur de salle Doremi (DCP2000, ShowVault, IMS). Système réduit : pas de nc, timeout, base64 ni curl." }
   jnr: { label: JNIOR, desc: "Boîtier d’automation en telnet. Une seule commande à la fois." }

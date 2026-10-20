@@ -157,7 +157,7 @@
 
 # --- Linux ---
 - cle: SVC
-  libelle: Service systemd (tomcat8, mongodb…)
+  libelle: Service systemd (tomcat8, mongodb, openvpn@nom…)
   groupe: Linux
   format: svc
   exemple: tomcat8
@@ -166,3 +166,8 @@
   groupe: Linux
   format: port
   exemple: '43758'
+- cle: HOTE
+  libelle: Nom ou IP d’un serveur distant (à joindre)
+  groupe: Linux
+  format: host
+  exemple: serveur.exemple.fr

@@ -327,3 +327,86 @@ commandes:
     lecture: '« Log In » sur une MAC Dell = souvent le switch de la baie : son interface montre l’état de chaque port (identifiants auprès du N3).'
     mots: [web, titre, wget, identifier]
     maj: 2026-10-19
+
+  - id: resolution-dns-d-un-nom
+    titre: Résolution DNS d’un nom
+    machine: lin
+    niveau: info
+    commande: |-
+      getent hosts {HOTE} ; echo "code=$?"
+    but: 'Le nom du serveur se traduit-il en adresse IP ? Première question quand un service distant ne répond plus.'
+    detail: |
+      getent hosts NOM → demande l’adresse au résolveur de la machine, comme le font les programmes
+      echo "code=$?" → affiche le code de retour : 0 = trouvé
+    exemple: |
+      203.0.113.10    serveur.exemple.fr
+      code=0
+    lecture: |
+      - Une adresse et **code=0** = le DNS fonctionne.
+      - **code=2** et rien d’affiché = nom introuvable, ou DNS qui ne répond pas. Tester ensuite une IP publique (« Sortie Internet du serveur ») pour distinguer.
+    voir: [sortie-internet-du-serveur, passerelle-par-defaut-joignable]
+    mots: [dns, nom, résolution, getent]
+    maj: 2026-10-20
+
+  - id: passerelle-par-defaut-joignable
+    titre: Passerelle par défaut joignable ?
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 -W 2 $(ip route | awk '/^default/ {print $3; exit}')
+    but: 'Teste le lien entre la machine et son routeur : ce qui sépare « mon réseau local est bon » de « c’est après le routeur que ça casse ».'
+    detail: |
+      ip route | awk '/^default/ {print $3; exit}' → lit l’adresse de la passerelle dans la route par défaut
+      ping -c 3 -W 2 → 3 essais, 2 s d’attente
+    attendu: '0% packet loss'
+    lecture: 'Passerelle OK mais plus rien au-delà (voir « Sortie Internet du serveur ») = le défaut est dans le routeur, la box ou la liaison du site, pas sur la machine.'
+    si_ko: 'Passerelle muette : problème de lien local (câble, switch, routeur éteint). Si l’ORC est la passerelle, passer à « serveur absent du réseau ».'
+    mots: [passerelle, gateway, routeur, ping]
+    maj: 2026-10-20
+
+  - id: sortie-internet-du-serveur
+    titre: Sortie Internet du serveur
+    machine: lin
+    niveau: info
+    commande: |-
+      for h in 1.1.1.1 8.8.8.8; do timeout 8 bash -c "echo > /dev/tcp/$h/443" 2>/dev/null; echo "$h:443 code=$?"; done
+    but: 'La machine sort-elle vers Internet ? On teste une connexion TCP (port 443) vers deux résolveurs publics, sans curl.'
+    detail: |
+      for h in … → répète pour chaque adresse
+      timeout 8 → abandonne après 8 secondes
+      bash -c "echo > /dev/tcp/ADRESSE/443" → tente d’ouvrir une connexion TCP
+      echo "…code=$?" → affiche le résultat : 0 ouvert, 124 expiré, 1 refusé
+    exemple: |
+      1.1.1.1:443 code=124
+      8.8.8.8:443 code=124
+    lecture: |
+      - **code=0** : la connexion s’ouvre.
+      - **code=124** : aucune réponse (timeout). Les deux à 124 avec la passerelle qui répond = pas de sortie Internet : routeur, box, pare-feu ou liaison du site.
+      - **code=1** : la connexion est refusée activement.
+      - Un seul des deux en échec : problème ciblé, pas de coupure générale.
+    attention: 'Ne pas conclure d’un ping en échec : beaucoup de pare-feux bloquent le ping sans bloquer le web. Le test TCP fait foi.'
+    si_ko: 'Prévenir le client (routeur ou box du site) ou le N3 réseau, avec ces résultats. Tout ce qui sort du site échoue en même temps : plugins distants, FTP, mises à jour.'
+    voir: [passerelle-par-defaut-joignable, resolution-dns-d-un-nom, plugin-distant-timeout]
+    mots: [internet, sortie, wan, tcp, 443, timeout]
+    maj: 2026-10-20
+
+  - id: test-port-avec-code-retour
+    titre: Test de port avec code de retour
+    machine: lin
+    niveau: info
+    commande: |-
+      timeout 8 bash -c 'echo > /dev/tcp/{HOTE}/{PORT}' ; echo "code=$?"
+    but: 'Ouvre une connexion TCP vers un nom ou une IP et un port, et dit pourquoi elle échoue : expirée ou refusée. Sans curl ni nc.'
+    detail: |
+      timeout 8 → abandonne après 8 secondes
+      bash -c 'echo > /dev/tcp/HÔTE/PORT' → tente la connexion
+      echo "code=$?" → 0 ouvert, 124 expiré, 1 refusé
+    exemple: |
+      code=124
+    lecture: |
+      - **0** : le port répond, le réseau est bon jusque-là.
+      - **124** (timeout) : personne ne répond. Machine éteinte, routage, ou pare-feu qui jette les paquets.
+      - **1** (refusé) : la machine répond mais rien n’écoute sur ce port.
+    voir: [sortie-internet-du-serveur]
+    mots: [port, tcp, timeout, refusé, dev/tcp]
+    maj: 2026-10-20

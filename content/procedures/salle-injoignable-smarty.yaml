@@ -1,0 +1,27 @@
+id: salle-injoignable-smarty
+theme: Supervision
+titre: 'Salle absente de Smarty : la salle ne répond pas'
+quand: 'Une salle n’apparaît pas (ou plus) dans Smarty alors qu’elle est déclarée, et elle semble injoignable depuis le TMS.'
+symptomes: [smarty, salle absente, salle injoignable, salle invisible, réseau salle]
+comprendre: |
+  Smarty n’affiche que les salles qu’il peut interroger. Une salle qui ne répond plus au réseau disparaît de l’écran : le défaut est dans la salle, pas dans Smarty. On prouve donc d’abord qu’elle est injoignable depuis le TMS, puis on envoie le client vérifier sur place. Relancer Smarty ne la fera pas revenir.
+etapes:
+  - ref: serveur-de-salle-joignable
+    attendu: '0 % de perte et une MAC. FAILED = rien ne répond'
+  - ref: mac-de-l-equipement
+    titre: Que dit le voisinage ARP ?
+    attendu: 'FAILED = ARP sans réponse : équipement absent du réseau local'
+  - ref: chemin-d-une-ip
+    titre: Par où passe l’IP ?
+    attendu: 'Le bon réseau et la bonne passerelle'
+  - titre: Autres salles
+    machine: man
+    consigne: 'Regarder si les autres salles du site sont visibles dans Smarty : si oui, le réseau du site va bien et le défaut est propre à cette salle.'
+  - titre: Vérifications sur place (client)
+    machine: man
+    consigne: 'Équipements de la salle allumés, câbles réseau branchés à l’arrière et sur le switch, voyants du port de la salle sur le switch, changement récent (coupure, intervention). Photo de l’arrière de la baie et du switch.'
+  - titre: Retour de la salle
+    machine: man
+    consigne: 'Une fois la salle rejointe (ping OK), Smarty la revoit en quelques secondes sans relance. Si elle manque encore, voir « salles absentes ».'
+attention: 'Ne pas relancer Smarty ni toucher à sa configuration pour une salle injoignable : elle est gérée par Puppet et le problème est réseau.'
+maj: 2026-10-20

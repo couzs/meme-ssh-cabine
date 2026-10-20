@@ -4,8 +4,10 @@ titre: 'Smarty : tableau de bord vide ou figé'
 quand: 'L’interface Smarty ne se met plus à jour, affiche des salles vides ou une erreur.'
 symptomes: [smarty, supervision, dashboard, figé, vide]
 comprendre: |
-  Smarty tourne sur le YMS : un poller interroge les salles et réécrit /var/www/dashboard.xml toutes les quelques secondes, et l’interface affiche ce fichier. S’il est frais, le serveur va bien et le souci est côté navigateur. S’il est vieux, le poller est arrêté ou bloqué, et les journaux disent pourquoi.
+  Selon le site, Smarty tourne sur le YMS ou dans le Tomcat du TMS (application tms-ymagis-smarty, sans service à lui) : on commence par le localiser. Sur le YMS : un poller interroge les salles et réécrit /var/www/dashboard.xml toutes les quelques secondes, et l’interface affiche ce fichier. S’il est frais, le serveur va bien et le souci est côté navigateur. S’il est vieux, le poller est arrêté ou bloqué, et les journaux disent pourquoi.
 etapes:
+  - ref: ou-tourne-smarty
+    attendu: 'tms-ymagis-smarty = application du TMS : procédure « Smarty sur le TMS ». Rien sur le YMS ni le TMS : demander au N3'
   - ref: se-connecter-au-yms
   - ref: smarty-tourne
     titre: Fichier frais ?
@@ -22,5 +24,5 @@ etapes:
     titre: Relance (démarrage)
   - ref: smarty-tourne
     titre: Contrôle
-attention: 'Mauvais nombre de salles : procédure « salles absentes ». Bases corrompues : procédure « purger les bases ».'
-maj: 2026-10-19
+attention: 'Une salle absente alors qu’elle est déclarée : souvent un problème réseau de la salle (procédure « salle injoignable »). Mauvais nombre de salles : procédure « salles absentes ». Bases corrompues : procédure « purger les bases ».'
+maj: 2026-10-20

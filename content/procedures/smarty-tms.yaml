@@ -1,0 +1,26 @@
+id: smarty-tms
+theme: Supervision
+titre: 'Smarty sur le TMS (application Tomcat) : vérifier et relancer'
+quand: 'Il n’y a ni service smarty-tms, ni smarty-poller, ni dashboard.xml, mais Smarty existe : il tourne dans le Tomcat du TMS.'
+symptomes: [smarty, tomcat, webapp, init.d introuvable, smarty-poller absent, relancer smarty]
+comprendre: |
+  Sur ces sites, Smarty est une application de Tomcat (tms-ymagis-smarty), sans service à lui. Les commandes « arrêter / démarrer Smarty » du YMS n’existent pas. On vérifie d’abord que l’application répond : relancer ne sert à rien si elle fonctionne. Si besoin, on la recharge seule ; en dernier recours on redémarre Tomcat, qui porte tout le TMS.
+etapes:
+  - ref: ou-tourne-smarty
+    attendu: 'tms-ymagis-smarty présent = application Tomcat'
+  - ref: smarty-ecoute-8080
+    attendu: '8080 en écoute'
+  - ref: page-smarty-repond
+    attendu: '200 OK = pas besoin de relancer'
+  - ref: journal-smarty-tomcat
+    titre: Erreurs récentes
+  - ref: recharger-smarty-tomcat
+    titre: Option douce
+  - ref: relancer-l-interface-web
+    titre: 'En dernier recours : Tomcat'
+    attendu: 'active, puis l’interface répond'
+  - ref: page-smarty-repond
+    titre: Contrôle
+    attendu: '200 OK'
+attention: 'Redémarrer Tomcat coupe tout le TMS 1 à 2 minutes (plugins compris) : accord du client, hors séance. Une salle absente de Smarty vient le plus souvent d’un problème réseau de la salle, pas de Smarty : voir « salle injoignable ».'
+maj: 2026-10-20
