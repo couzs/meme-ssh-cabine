@@ -133,3 +133,106 @@ commandes:
     si_ko: 'Gmail avec validation en deux étapes : il faut un mot de passe d’application. Outlook.com / Microsoft 365 : la connexion IMAP par simple mot de passe n’est plus acceptée.'
     attention: 'Ne jamais écrire le mot de passe dans le ticket.'
     mots: [imap, gmail, mail, mot de passe, test]
+
+  - id: resultat-de-la-releve-mail
+    titre: Résultat de la relève de la boîte mail
+    machine: tms
+    niveau: info
+    commande: |-
+      sudo sh -c 'zcat -f $(ls -tr /var/log/tomcat8/catalina.out*) | grep -a "Mail found" | sort | uniq -c'
+    but: 'Combien de KDM la relève a retenues à chaque passage, sur toute la durée conservée des journaux.'
+    detail: |
+      ls -tr /var/log/tomcat8/catalina.out* → le journal actuel et ses archives, du plus ancien au plus récent
+      zcat -f → lit les fichiers compressés (.gz) comme les autres
+      grep -a "Mail found" → la ligne « Mail found : N » écrite à chaque relève
+      sort | uniq -c → regroupe les valeurs identiques et les compte
+    exemple: |
+      22 Mail found : 0
+    lecture: |
+      - **Mail found : N** = nombre de messages que le TMS a retenus comme KDM à ce passage.
+      - **0 à chaque passage** : la boîte est lue mais rien n’est retenu. Ce n’est pas un problème de connexion.
+      - Une valeur supérieure à 0 qui apparaît puis disparaît donne la date de la dernière relève qui a fonctionné.
+    attendu: 'Des valeurs supérieures à 0 quand des KDM sont arrivées'
+    si_ko: 'Toujours 0 : vérifier le compte configuré (« Boîtes mail (sans secrets) »), puis l’endroit où le TMS dépose les fichiers (« Dossier de dépôt des KDM de la boîte mail »).'
+    attention: 'Les critères exacts de sélection d’un message (non lu, pièce jointe, date) ne sont pas vérifiés ici : demande au client si ses mails KDM sont déjà lus.'
+    voir: [boites-mail-sans-secrets, dossier-de-depot-des-kdm-de-la-boite-mail]
+    mots: [mail found, relève, scan kdm, 0%, imap]
+    maj: 2026-10-26
+
+  - id: releve-mail-pas-a-pas
+    titre: Relève de la boîte mail pas à pas
+    machine: tms
+    niveau: info
+    commande: |-
+      sudo grep -a "MailConnector" /var/log/tomcat8/catalina.out | tail -40 | cut -c1-200
+    but: 'Suit la relève dossier par dossier : connexion, dossiers parcourus, temps passé, fin du traitement.'
+    detail: |
+      grep -a "MailConnector" → les lignes du composant qui lit la boîte
+      tail -40 → les 40 dernières
+      cut -c1-200 → coupe les lignes trop longues
+    exemple: |
+      16:51:45 INFO MailConnector.scan Opening session
+      16:51:46 INFO MailConnector.scan Connecting
+      16:52:04 INFO MailConnector.scanDirectory Starting directory KDM
+      16:52:08 INFO MailConnector.scanDirectory Ending directory KDM
+      16:52:14 INFO MailConnector.scan Ending treatment
+    lecture: |
+      - **Opening session / Connecting** puis des dossiers : la boîte s’ouvre, l’authentification est bonne.
+      - **Ending treatment** : la relève est allée au bout.
+      - Un dossier qui prend plusieurs secondes contient des messages ; les dossiers vides se lisent en moins d’une seconde.
+      - **folder cannot contain messages** sur un dossier parent (classé SEVERE) : bruit sans conséquence, ce dossier ne sert qu’à ranger des sous-dossiers.
+      - **Server doesn’t have sorting capability** : normal avec Gmail.
+    si_ko: 'Pas de « Ending treatment » ou une erreur d’authentification : voir « Erreurs de relève et de dépôt KDM ».'
+    voir: [erreurs-de-releve-et-de-depot-kdm, resultat-de-la-releve-mail]
+    mots: [mailconnector, relève, imap, dossier, kdm]
+    maj: 2026-10-26
+
+  - id: echecs-de-connexion-aux-bibliotheques
+    titre: Échecs de connexion aux bibliothèques
+    machine: tms
+    niveau: info
+    commande: |-
+      sudo sh -c 'zcat -f $(ls -tr /var/log/tomcat8/catalina.out*) | grep -aoE "No route to host|Login incorrect|Read timed out" | sort | uniq -c'
+    but: 'Compte les causes d’échec du scan quotidien des bibliothèques (tous les jours à 10h) : FTP injoignable, identifiant refusé, réponse trop lente.'
+    detail: |
+      grep -a -o -E → extrait seulement la cause, pas toute la ligne
+      sort | uniq -c → compte chaque cause
+    exemple: |
+      15 Read timed out
+      24 Login incorrect
+      54 No route to host
+    lecture: |
+      - **No route to host** : la machine ne répond pas (éteinte, câble, IP changée). Voir `ip neigh show | grep -E "FAILED|INCOMPLETE"` juste après un scan : les IP non résolues sont les bibliothèques injoignables.
+      - **530 Login incorrect** : l’identifiant ou le mot de passe FTP enregistré dans le TMS pour cette bibliothèque est refusé.
+      - **Read timed out** : la machine répond mais trop lentement (disque ou réseau saturé).
+      - Ces échecs se répètent à chaque scan et n’empêchent pas les autres bibliothèques d’être lues.
+    attendu: 'Aucun échec, ou seulement ceux d’une bibliothèque connue et hors service'
+    si_ko: 'Le journal ne nomme pas la bibliothèque en cause : demander au client la liste de ses bibliothèques en service, puis tester chacune (ping, puis port 21).'
+    attention: 'Ce n’est pas la cause d’un scan KDM par mail à 0 % : ce sont deux chemins séparés.'
+    voir: [kdm-scan-zero]
+    mots: [bibliothèque, ftp, scan, 10h, no route to host, 530]
+    maj: 2026-10-26
+
+  - id: dossier-de-depot-des-kdm-de-la-boite-mail
+    titre: Dossier de dépôt des KDM de la boîte mail
+    machine: lms
+    niveau: info
+    commande: |-
+      sudo find / -maxdepth 4 -type d -name "kdm.*_at_imap*" 2>/dev/null
+    but: 'Retrouve, sur la bibliothèque, le dossier où le TMS dépose les KDM relevées dans la boîte mail, quel que soit l’endroit où il est.'
+    detail: |
+      find / -maxdepth 4 → cherche depuis la racine, sur 4 niveaux seulement (rapide)
+      -type d → seulement les dossiers
+      -name "kdm.*_at_imap*" → nom fabriqué par le TMS : kdm.<compte>_at_imap.<serveur>
+    exemple: |
+      /volume1/KDM/kdm/kdm.compte_at_imap.gmail.com
+    lecture: |
+      - Le dossier est créé au premier scan : sa date de création (`ls -ld --time-style=long-iso <dossier>`) donne le début de la configuration.
+      - **Vide depuis sa création** : aucune KDM n’a jamais été déposée par le mail.
+      - Des fichiers KDM (`.xml`) au niveau du dossier parent viennent d’un import manuel ou d’un autre chemin, pas de la relève.
+      - Compare ce chemin à celui de la bibliothèque dans le TMS : un chemin différent = les fichiers sont cherchés ou déposés au mauvais endroit.
+    si_ko: 'Aucun dossier trouvé : la bibliothèque visée n’est pas la bonne, ou la relève n’a jamais écrit.'
+    attention: 'Lecture seule : ne rien supprimer sur la bibliothèque sans validation écrite du client.'
+    voir: [kdm-scan-zero, kdm-recues-sur-le-lms]
+    mots: [dépôt, kdm, chemin, bibliothèque, imap, dossier]
+    maj: 2026-10-26

@@ -1,5 +1,11 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
+- date: 2026-10-26
+  titre: Scan KDM par mail bloqué à 0 %, bibliothèques en échec, reconstruction RAID
+  texte: |
+    - Nouvelle procédure « Scan KDM par la boîte mail bloqué à 0 % » : résultat de la relève, parcours dossier par dossier, compte configuré, dossier de dépôt sur la bibliothèque, comparaison avec le chemin du TMS.
+    - Rubrique KDM : « Résultat de la relève de la boîte mail », « Relève pas à pas », « Échecs de connexion aux bibliothèques » (No route to host, 530, timeout) et « Dossier de dépôt des KDM de la boîte mail ».
+    - Réparation : « Avancement d’une reconstruction RAID » (temps restant sur Synology ou Linux).
 - date: 2026-10-20
   titre: Sortie Internet, VPN de l’ORC et Smarty sur le TMS
   texte: |

@@ -114,3 +114,30 @@ commandes:
     attendu: 'PASSED'
     si_ko: 'FAILED = disque en fin de vie : sauvegarder la base sans attendre et ouvrir un ticket matériel. « command not found » = smartmontools absent.'
     mots: [smart, disque, santé, panne]
+
+  - id: reconstruction-raid-avancement
+    titre: Avancement d’une reconstruction RAID (Synology, Linux)
+    machine: lin
+    niveau: info
+    commande: |-
+      cat /proc/mdstat ; cat /proc/sys/dev/raid/speed_limit_min /proc/sys/dev/raid/speed_limit_max
+    but: 'Estimer le temps restant d’une reconstruction après le changement d’un disque. Fonctionne sur un NAS Synology en SSH comme sur tout Linux en RAID logiciel.'
+    detail: |
+      cat /proc/mdstat → état de chaque grappe RAID et avancement d’une reconstruction
+      speed_limit_min / speed_limit_max → vitesses plancher et plafond (Ko/s) que le système accorde à la reconstruction
+    exemple: |
+      md2 : active raid5 sda3[0] sdc3[3] sdb3[1]
+            [=====>...............]  recovery = 28.4% (1110000000/3900000000) finish=620.5min speed=75000K/sec
+      1000
+      200000
+    lecture: |
+      - **recovery = 28.4 %** : avancement. **finish=620.5min** : temps restant estimé, calculé avec la vitesse actuelle.
+      - **speed** : vitesse du moment. Elle baisse quand la bibliothèque est utilisée (lectures, ingests) : l’estimation varie donc.
+      - `[UU_]` : un disque manque encore. `[UUU]` : la grappe est complète.
+      - Sur de gros disques, compter plusieurs heures à plusieurs jours.
+    attendu: 'Un pourcentage qui progresse à chaque lecture'
+    si_ko: 'Pourcentage figé ou vitesse proche de 0 : regarder `dmesg | tail -30` (erreurs de disque) et la santé SMART des disques restants.'
+    attention: 'Ne pas modifier speed_limit_min ni éteindre la NAS pendant une reconstruction sans l’accord du client : relever la vitesse ralentit la bibliothèque, et une deuxième panne de disque perd les données.'
+    voir: [sante-du-disque]
+    mots: [raid, mdstat, synology, reconstruction, rebuild, disque remplacé, hdd]
+    maj: 2026-10-26

@@ -1,0 +1,31 @@
+id: kdm-scan-zero
+theme: TMS & KDM
+titre: Scan KDM par la boîte mail bloqué à 0 %
+quand: 'Le client lance le scan KDM de sa boîte mail, la boîte a l’air correcte, mais le scan reste à 0 % et aucune KDM n’arrive.'
+symptomes: [scan kdm, 0%, mail found, boite mail, kdm absente]
+comprendre: |
+  Deux mécanismes distincts se ressemblent. La **relève de la boîte mail** lit la boîte en IMAP et dépose les KDM retenues dans un dossier de la bibliothèque. Le **scan des bibliothèques** (tous les jours à 10h) lit les films et KDM déjà présents en FTP. Des échecs de connexion FTP à certaines bibliothèques sont fréquents et n’expliquent pas à eux seuls un scan mail à 0 %.
+  On vérifie dans l’ordre : la relève trouve-t-elle des mails ? le dossier de dépôt de la bibliothèque est-il le bon ? Dans un cas rencontré, la boîte était saine et le chemin de la bibliothèque enregistré dans le TMS ne correspondait pas au dossier réel : après correction du chemin et redémarrage de l’interface web, le scan a fonctionné.
+etapes:
+  - ref: resultat-de-la-releve-mail
+    titre: Combien de mails retenus ?
+  - ref: releve-mail-pas-a-pas
+    titre: La relève va-t-elle au bout ?
+  - ref: boites-mail-sans-secrets
+    titre: Quel compte le TMS relève-t-il ?
+    attendu: 'C’est bien la boîte où le client reçoit ses KDM. lastMessage récent = la relève fonctionne'
+  - ref: echecs-de-connexion-aux-bibliotheques
+    titre: Échecs FTP des bibliothèques (bruit ou cause ?)
+  - ref: dossier-de-depot-des-kdm-de-la-boite-mail
+    titre: Où le TMS dépose-t-il les KDM ?
+  - titre: Comparer le chemin enregistré dans le TMS
+    machine: man
+    consigne: 'Dans les réglages des bibliothèques du TMS, comparer le chemin (et l’adresse) avec le dossier réellement trouvé sur la bibliothèque. S’il diffère, le corriger, avec l’accord du client.'
+  - titre: Questions au client
+    machine: man
+    consigne: 'Quel film, quelle salle, quelle date de début de KDM ? Les mails sont-ils dans le bon libellé de la boîte et sont-ils lus ou non lus ? La boîte est-elle ouverte ailleurs (Outlook, téléphone) ? L’import par mail a-t-il déjà fonctionné ?'
+  - ref: relancer-l-interface-web
+    titre: Relancer l’interface web après correction
+    attendu: 'active. Puis relancer un scan et revérifier « Mail found »'
+attention: 'Redémarrer Tomcat coupe l’interface quelques secondes et interrompt les tâches en cours : prévenir le client et noter l’heure dans le ticket. Ne jamais écrire un mot de passe dans le ticket.'
+maj: 2026-10-26
