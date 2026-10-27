@@ -276,6 +276,25 @@ function render() {
   }
   $('out').innerHTML = h;
   $('meta').textContent = meta;
+  if (S.q) highlight($('out'), terms());
+}
+/* surbrillance des mots cherchés (insensible à la casse et aux accents), hors blocs de commande */
+function highlight(root, ts) {
+  if (!ts.length) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest('pre,mark,script,style') || !n.nodeValue.trim() ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nodes = []; while (w.nextNode()) nodes.push(w.currentNode);
+  nodes.forEach(n => {
+    const txt = n.nodeValue;
+    /* norm() décompose les accents puis les retire : la longueur ne change pas pour les lettres françaises courantes */
+    const flat = norm(txt); if (flat.length !== txt.length) return;
+    const hit = new Array(txt.length).fill(false); let any = false;
+    ts.forEach(t => { for (let i = flat.indexOf(t); i >= 0; i = flat.indexOf(t, i + t.length)) { any = true; for (let j = i; j < i + t.length; j++) hit[j] = true; } });
+    if (!any) return;
+    const frag = document.createDocumentFragment(); let i = 0;
+    while (i < txt.length) { let j = i; while (j < txt.length && hit[j] === hit[i]) j++; const part = txt.slice(i, j);
+      if (hit[i]) { const m = document.createElement('mark'); m.textContent = part; frag.appendChild(m); } else frag.appendChild(document.createTextNode(part)); i = j; }
+    n.replaceWith(frag);
+  });
 }
 function emptyHTML() {
   return '<div class="empty">Rien ne correspond' + (S.fav ? ' dans tes favoris' : '') + (S.m !== 'all' ? ' pour la machine ' + esc(MACH[S.m].label) : '') + '.<br>Essaie un autre mot, ou repasse le filtre sur « Tout ».</div>';

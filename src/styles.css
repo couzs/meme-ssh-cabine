@@ -323,3 +323,5 @@ body.v-compact li.step{padding:8px 0}
   pre.cmd{background:#fff;color:#000;border:1px solid #999}
 }
 .card,.pbody,.page,details.proc>summary,.tile,.hit,.dlg-body{overflow-wrap:anywhere}
+
+mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 1px;box-shadow:0 0 0 1px var(--accent)}
