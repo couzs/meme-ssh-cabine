@@ -5,6 +5,7 @@
   texte: |
     - Les pages longues (glossaire, repères, guides) affichent un sommaire cliquable en haut.
     - Accueil : encart « Consultés récemment » avec les dernières fiches et procédures ouvertes.
+    - Procédures : bouton « Résumé pour ticket » (titre, symptôme, étapes numérotées avec leurs commandes).
     - Hors ligne : si le réseau répond en plus de 4 secondes, le mémo s’affiche depuis la copie locale.
 - date: 2026-10-26
   titre: Scan KDM par mail bloqué à 0 %, bibliothèques en échec, reconstruction RAID

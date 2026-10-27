@@ -83,6 +83,9 @@ PROCS.forEach(p => {
   const interactive = s => /(^|[;&|(]\s*)(sudo|ssh|ftp|telnet|top|jrmon|script|mongo ytms\s*$)\b|tail -f|journalctl -f/m.test(s.commande);
   if (p.readOnly && p.copier_tout && cmds.length > 1 && cmds.every(s => s.machine === cmds[0].machine) && !cmds.some(interactive)) COPY['p:' + p.id + ':all'] = { cmd: cmds.map(s => s.commande).join('\n'), lv: 'info', m: cmds[0].machine };
   p.machines = [...new Set(p.etapes.map(s => s.machine).filter(m => m !== 'man'))];
+  /* résumé à coller dans un ticket : titre, symptôme, étapes numérotées (commandes en bloc de code) */
+  COPY['p:' + p.id + ':ticket'] = { lv: 'info', m: p.machines[0] || 'man', msg: 'Résumé copié : colle-le dans le ticket',
+    cmd: '**' + p.titre + '**\n' + (p.quand ? p.quand + '\n' : '') + '\n' + p.etapes.map((s, i) => (i + 1) + '. ' + s.titre + (s.commande ? '\n```\n' + s.commande + '\n```' : '')).join('\n') };
   p.lvMax = p.etapes.some(s => s.niveau === 'danger') ? 'danger' : p.etapes.some(s => s.niveau === 'action') ? 'action' : 'info';
   p.hay = norm([p.titre, p.quand, strip(p.comprendre), p.theme, p.symptomes.join(' '), strip(p.attention), p.etapes.map(s => s.titre + ' ' + s.commande + ' ' + strip(s.attendu) + ' ' + strip(s.consigne)).join(' ')].join(' '));
   p.tnorm = norm(p.titre + ' ' + p.quand + ' ' + p.symptomes.join(' '));
@@ -190,6 +193,7 @@ function procHTML(p) {
     star(p.id) + linkBtn('#p.' + p.id) + '</span></summary>' +
     '<div class="pbody">' +
     (p.comprendre ? '<div class="pwhy"><b>Comprendre</b>' + p.comprendre + '</div>' : '') +
+    '<div class="pact"><span>Pour un ticket : titre, symptôme et étapes de la procédure.</span>' + copyBtn('p:' + p.id + ':ticket', 'info', 'Résumé pour ticket') + '</div>' +
     (all ? '<div class="pact"><span>Toutes les étapes sont en lecture seule et sur la même machine : tu peux tout copier d’un coup.</span>' + copyBtn('p:' + p.id + ':all', 'info', 'Copier tout') + '</div>' : '') +
     '<ol class="steps">' + p.etapes.map((s, i) => stepHTML(p, s, i)).join('') + '</ol>' +
     (p.attention ? '<div class="pnote"><b>⚠ </b>' + p.attention + '</div>' : '') +
@@ -467,7 +471,7 @@ $('out').addEventListener('click', e => {
   }
   resetPending();
   const p = c.tagName === 'PRE' ? c : scope && scope.querySelector('pre');
-  writeClip(subst(entry.cmd), empty.length ? 'Copié, mais à remplir : ' + empty.join(', ') : 'Copié · à coller sur ' + MACH[entry.m].label, p);
+  writeClip(subst(entry.cmd), empty.length ? 'Copié, mais à remplir : ' + empty.join(', ') : entry.msg || 'Copié · à coller sur ' + MACH[entry.m].label, p);
 });
 $('out').addEventListener('toggle', e => { const d = e.target; if (d.matches && d.matches('details.proc')) d.open ? S.open.add(d.dataset.pid) : S.open.delete(d.dataset.pid); }, true);
 
