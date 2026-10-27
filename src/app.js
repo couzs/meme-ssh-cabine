@@ -50,6 +50,10 @@ const saveFavs = () => save('memo_favs2', [...S.favs]);
 const sm = load('memo_machine'); if (sm === 'all' || has(MACH, sm)) S.m = sm;
 const svw = load('memo_view'); if (['guide', 'std', 'compact'].includes(svw)) S.view = svw; else if (load('memo_compact') === true) S.view = 'compact';
 const seen = load('memo_news_seen') || '';
+/* consultés récemment : identifiants de fiches et de procédures ouvertes, les plus récents d’abord */
+const RECENT_MAX = 6;
+let recent = (load('memo_recent') || []).filter(x => typeof x === 'string' && (CMD[x] || PROC[x])).slice(0, RECENT_MAX);
+function touchRecent(id) { recent = [id, ...recent.filter(x => x !== id)].slice(0, RECENT_MAX); save('memo_recent', recent); }
 
 /* ================= VARIABLES ================= */
 const vState = (k, v) => { if (v === undefined) v = S.vals[k]; return VAR[k] ? etatValeur(VAR[k].format, v) : 'bad'; };
@@ -119,6 +123,8 @@ function route() {
   S.route = parseHash();
   if (S.route.fav) S.fav = true;
   if (S.route.open) S.open.add(S.route.open);
+  if (S.route.open) touchRecent(S.route.open);
+  else if (S.route.focus && S.route.focus.startsWith('c-')) touchRecent(S.route.focus.slice(2));
   render();
   const f = S.route.focus;
   if (f) requestAnimationFrame(() => { const el = $(f); if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ block: 'start' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } });
@@ -193,6 +199,7 @@ function procHTML(p) {
 function pageHTML(p) {
   const ed = editUrl(p.fichier);
   return '<section class="grp" id="g-' + p.id + '"><div class="crumb"><a href="#accueil">Accueil</a> › ' + esc(p.groupe) + '</div><h2>' + esc(p.titre) + '</h2>' + (p.intro ? '<p class="intro">' + esc(p.intro) + '</p>' : '') +
+    (p.toc.length ? '<nav class="toc" aria-label="Sommaire"><b>Sommaire</b>' + p.toc.map(t => '<a href="#page.' + p.id + '" data-goto="' + esc(t.id) + '">' + t.titre + '</a>').join('') + '</nav>' : '') +
     '<div class="page">' + p.html + '</div>' + (ed ? '<div class="cfoot"><a href="' + ed + '" target="_blank" rel="noopener">Proposer une correction</a></div>' : '') + '</section>';
 }
 function catSection(cat, cmds, crumb) {
@@ -216,11 +223,13 @@ function homeHTML() {
   if (lt) tiles += '</div>';
   const guides = PAGES.filter(p => p.type === 'guide');
   const favs = [...S.favs].map(id => CMD[id] ? '<li><a href="#c.' + id + '">' + esc(CMD[id].titre) + '</a></li>' : PROC[id] ? '<li><a href="#p.' + id + '">▶ ' + esc(PROC[id].titre) + '</a></li>' : '').join('');
+  const rec = recent.map(id => CMD[id] ? '<li><a href="#c.' + id + '">' + esc(CMD[id].titre) + '</a></li>' : PROC[id] ? '<li><a href="#p.' + id + '">▶ ' + esc(PROC[id].titre) + '</a></li>' : '').join('');
   const news = DATA.nouveautes.slice(0, 3).map(n => '<li><b>' + esc(n.titre) + '</b> <span class="vs-count">' + esc(fmtDate(n.date)) + '</span></li>').join('');
   return '<div class="hero"><h1>Que se passe-t-il en cabine ?</h1><p>Choisis le symptôme ci-dessous pour suivre une procédure pas à pas, ou tape un mot dans la recherche (<kbd>/</kbd>) : « kdm », « disque plein », « lumière », « ingest »…</p>' +
     '<ol class="steps3"><li><b>Renseigne ton site</b>Ouvre « Mon site » et saisis les IP : elles s’insèrent dans les commandes.</li><li><b>Suis la procédure</b>Chaque étape dit quoi taper, sur quelle machine, et ce que tu dois voir.</li><li><b>Copie, colle, compare</b>Clique sur une commande pour la copier. Le résultat attendu est juste dessous.</li></ol></div>' +
     '<div class="home-grid"><div>' + (tiles || '<div class="empty">Aucune procédure pour ce filtre.</div>') + '</div><aside class="home-side">' +
     (guides.length ? '<div class="box"><h3>Débuter</h3><ul>' + guides.map(g => '<li><a href="#page.' + g.id + '">' + esc(g.titre) + '</a></li>').join('') + '</ul></div>' : '') +
+    (rec ? '<div class="box"><h3>Consultés récemment</h3><ul>' + rec + '</ul></div>' : '') +
     (favs ? '<div class="box"><h3>Mes favoris</h3><ul>' + favs + '</ul></div>' : '') +
     '<div class="box"><h3>Niveaux de risque</h3><div class="legend">' + Object.keys(LEV).map(k => '<div>' + tagL(k) + '<span>' + esc(LEV[k].desc) + '</span></div>').join('') + '</div></div>' +
     (news ? '<div class="box"><h3>Nouveautés</h3><ul>' + news + '</ul><p style="margin-top:8px"><a href="#" data-dlg="news">Tout voir</a></p></div>' : '') +
@@ -438,6 +447,8 @@ $('out').addEventListener('click', e => {
   if (st) { e.preventDefault(); e.stopPropagation(); const f = st.dataset.star; S.favs.has(f) ? S.favs.delete(f) : S.favs.add(f); saveFavs(); const on = S.favs.has(f); document.querySelectorAll('[data-star="' + CSS.escape(f) + '"]').forEach(b => { b.setAttribute('aria-pressed', on); b.textContent = on ? '★' : '☆'; }); toast(on ? 'Ajouté aux favoris' : 'Retiré des favoris'); if (S.fav) render(); return; }
   const ln = e.target.closest('[data-link]');
   if (ln) { e.preventDefault(); e.stopPropagation(); const url = online ? location.origin + location.pathname + ln.dataset.link : ln.dataset.link; writeClip(url, 'Lien copié : colle-le dans le ticket'); return; }
+  const gt = e.target.closest('[data-goto]');
+  if (gt) { e.preventDefault(); const el = $(gt.dataset.goto); if (el) { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } return; }
   const dl = e.target.closest('[data-dlg]');
   if (dl) { e.preventDefault(); openDlg(dl.dataset.dlg); return; }
   const c = e.target.closest('[data-copy]');

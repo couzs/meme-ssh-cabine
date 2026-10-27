@@ -182,7 +182,22 @@ for (const file of list('procedures')) {
 procedures.sort((a, b) => THEMES.indexOf(a.theme) - THEMES.indexOf(b.theme));
 
 /* ---------- pages (Apprendre, Repères) ---------- */
-marked.use({ gfm: true });
+/* Titres de pages : identifiant stable pour le sommaire (le « # » du navigateur sert déjà au routage, d’où data-goto). */
+let tocItems = [], tocSeen = new Set();
+const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section';
+marked.use({
+  gfm: true,
+  renderer: {
+    heading({ tokens, depth }) {
+      const text = this.parser.parseInline(tokens);
+      let id = slug(text), n = 2; const base = id;
+      while (tocSeen.has(id)) id = base + '-' + n++;
+      tocSeen.add(id);
+      if (depth === 2) tocItems.push({ id, text: text.replace(/<[^>]+>/g, '') });
+      return '<h' + depth + ' id="s-' + id + '">' + text + '</h' + depth + '>\n';
+    }
+  }
+});
 const pages = [];
 for (const [dir, type] of [['apprendre', 'guide'], ['reperes', 'ref']]) {
   for (const file of list(dir).filter(f => f.endsWith('.md'))) {
@@ -193,10 +208,12 @@ for (const [dir, type] of [['apprendre', 'guide'], ['reperes', 'ref']]) {
     if (!ID_RX.test(fm.id || '')) { err(file, '« id » manquant ou invalide'); continue; }
     claim('page', fm.id, file, 'page');
     checkIPs(file, 'texte', m[2]);
+    tocItems = []; tocSeen = new Set();
     let html = marked.parse(m[2]);
+    const toc = tocItems.length >= 4 ? tocItems.map(t => ({ id: 's-' + t.id, titre: t.text })) : [];
     /* tableaux défilants sur mobile */
     html = html.replace(/<table>/g, '<div class="tscroll"><table>').replace(/<\/table>/g, '</table></div>');
-    pages.push({ id: fm.id, titre: fm.titre || fm.id, groupe: fm.groupe || (type === 'guide' ? 'Apprendre' : 'Repères'), intro: fm.intro || '', type, html, fichier: rel(file) });
+    pages.push({ id: fm.id, titre: fm.titre || fm.id, groupe: fm.groupe || (type === 'guide' ? 'Apprendre' : 'Repères'), intro: fm.intro || '', type, html, toc, fichier: rel(file) });
   }
 }
 

@@ -10,9 +10,11 @@
     "serve": "node scripts/serve.mjs",
     "test": "node scripts/build.mjs --check"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "js-yaml": "4.1.0",
-    "marked": "12.0.2"
+    "marked": "18.1.2"
   }
 }
