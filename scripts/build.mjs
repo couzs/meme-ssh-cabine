@@ -220,6 +220,20 @@ for (const [dir, type] of [['apprendre', 'guide'], ['reperes', 'ref']]) {
 /* ---------- liens entre fiches ---------- */
 for (const c of commandes) for (const v of c.voir) if (!CMD.has(v) && !procedures.some(p => p.id === v) && !pages.some(p => p.id === v)) err(C(c.fichier.replace(/^content\//, '')), 'commande « ' + c.id + ' » : voir « ' + v + ' » introuvable');
 
+/* ---------- règles d’analyse (« Analyser une sortie ») ---------- */
+const anFile = C('analyse.yaml');
+const GRAVITES = ['crit', 'warn', 'info'];
+const analyse = fs.existsSync(anFile) ? (readYaml(anFile) || []).map((r, i) => {
+  const where = 'règle n° ' + (i + 1) + (r && r.id ? ' (' + r.id + ')' : '');
+  if (!r || !ID_RX.test(r.id || '')) { err(anFile, where + ' : « id » manquant ou invalide'); return null; }
+  if (!isStr(r.titre) || !isStr(r.explication)) err(anFile, where + ' : « titre » et « explication » attendus');
+  if (!GRAVITES.includes(r.gravite)) err(anFile, where + ' : gravité « ' + r.gravite + ' » inconnue (' + GRAVITES.join(', ') + ')');
+  try { new RegExp(r.motif, 'im'); } catch (e) { err(anFile, where + ' : motif illisible (' + e.message + ')'); }
+  const voir = Array.isArray(r.voir) ? r.voir.map(String) : [];
+  for (const v of voir) if (!CMD.has(v) && !procedures.some(p => p.id === v) && !pages.some(p => p.id === v)) err(anFile, where + ' : voir « ' + v + ' » introuvable');
+  return { id: r.id, titre: r.titre, motif: String(r.motif), gravite: r.gravite, explication: prose(r.explication), voir };
+}).filter(Boolean) : [];
+
 /* ---------- nouveautés ---------- */
 const nvFile = C('nouveautes.yaml');
 const nouveautes = fs.existsSync(nvFile) ? (readYaml(nvFile) || []).map((n, i) => {
@@ -246,7 +260,7 @@ const build = new Date().toISOString();
 const data = {
   meta: { titre: site.titre, sous_titre: site.sous_titre, version: pkg.version, build, commit: commit.slice(0, 7), depot: site.depot || '', branche: site.branche || 'main', contact: site.contact || '' },
   machines: MACHINES, niveaux: NIVEAUX, themes: THEMES, groupes: site.groupes || [], accueil: site.accueil || {},
-  variables, categories, commandes, procedures, pages, nouveautes
+  variables, categories, commandes, procedures, pages, nouveautes, analyse
 };
 const json = JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');

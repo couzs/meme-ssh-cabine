@@ -1,0 +1,105 @@
+id: diagnostic
+titre: Diagnostic en une commande
+groupe: TMS & Linux
+intro: 'Un seul copier-coller à l’arrivée sur un ticket : l’état de santé de la machine (disque, mémoire, services, heure, réseau) en une trentaine de lignes. Seuls les problèmes sont détaillés : un disque sous 80 % n’apparaît pas. Colle ensuite le résultat dans « Analyser une sortie » (barre du haut) pour être orienté.'
+
+commandes:
+  - id: diagnostic-linux
+    titre: Diagnostic Linux (TMS, ORC, LMS)
+    machine: lin
+    niveau: info
+    commande: |-
+      echo "== $(hostname) · $(date '+%F %T %Z') · $(uptime -p)"; echo "== Disques >= 80 %"; df -hP -x tmpfs -x devtmpfs | awk 'NR==1||$5+0>=80'; echo "== Inodes >= 80 %"; df -iP -x tmpfs -x devtmpfs | awk 'NR==1||$5+0>=80'; echo "== Mémoire (Mo)"; free -m | sed -n 1,3p; echo "== Charge"; cat /proc/loadavg; echo "== Services en échec"; systemctl --failed --no-legend --no-pager; echo "== Heure"; timedatectl | grep -E "System clock|NTP"; echo "== Route par défaut"; ip route | grep '^default'; echo "== Erreurs noyau (1 h)"; journalctl -k -p err --since "1 hour ago" --no-pager | tail -5
+    but: 'Le tour d’horizon à lancer en premier sur n’importe quelle machine Linux du site, avant de chercher plus précisément.'
+    detail: |
+      echo "== …" → affiche un titre pour séparer les blocs de résultat
+      df -hP … | awk 'NR==1||$5+0>=80' → disques en Mo/Go lisibles ; ne garde que l’en-tête et les lignes dont le taux d’occupation est de 80 % ou plus
+      df -iP → même chose pour les inodes (nombre de fichiers possibles)
+      free -m → mémoire et swap en Mo
+      /proc/loadavg → charge moyenne sur 1, 5 et 15 minutes
+      systemctl --failed → services systemd en échec
+      timedatectl → heure système et synchronisation NTP
+      ip route | grep '^default' → passerelle par défaut
+      journalctl -k -p err → erreurs du noyau (disque, réseau, mémoire) de la dernière heure
+    attendu: 'Sous « Disques », « Inodes » et « Services en échec » : rien ou seulement l’en-tête. « System clock synchronized: yes ». Une ligne « default via … ».'
+    lecture: |
+      - **Une ligne sous Disques** : la partition est presque pleine, c’est la cause numéro un des pannes (base, logs, DCP).
+      - **Inodes à 100 %** alors que l’espace est libre : trop de petits fichiers (logs, fichiers temporaires).
+      - **Charge** (3 nombres) supérieure au nombre de cœurs pendant longtemps : machine saturée. Compare avec `nproc`.
+      - **Swap utilisé en grande partie** : manque de mémoire.
+      - **Pas de ligne « default via »** : plus de passerelle, la machine ne sort plus de son réseau.
+      - **Erreurs noyau « I/O error », « ata », « EXT4-fs error »** : disque en train de lâcher.
+    si_ko: 'Si une commande de la ligne manque (« command not found »), lance les blocs un par un depuis les fiches de détail. Sur un serveur Doremi, ce diagnostic ne s’applique pas (système réduit).'
+    mots: [diagnostic, santé, tour d’horizon, premier, ticket, bilan]
+    voir: [espace-disque, inodes, services-en-echec, heure-fuseau-et-ntp, passerelle, ram]
+    maj: 2026-10-27
+
+  - id: diagnostic-tms
+    titre: Diagnostic TMS (services Cinemanext)
+    machine: tms
+    niveau: info
+    commande: |-
+      echo "== Services"; for s in tomcat8 mongodb; do printf "%-10s %s\n" $s "$(systemctl is-active $s)"; done; /etc/init.d/cinemanext-monitoring-remote status; echo "== Ports en écoute (web, base)"; ss -ltn | grep -E ':(8080|8443|27017)\b'; echo "== Erreurs Tomcat (dernières)"; grep -hiE "severe|exception" /var/log/tomcat8/catalina.out 2>/dev/null | tail -5; echo "== Base"; mongo --quiet ytms --eval 'printjson(db.stats().ok)'
+    but: 'Complète le diagnostic Linux sur le TMS : les services propres à Cinemanext répondent-ils ?'
+    detail: |
+      for s in tomcat8 mongodb … → état actif ou non de l’interface web et de la base
+      cinemanext-monitoring-remote status → service de supervision à distance
+      ss -ltn | grep -E ':(8080|8443|27017)\b' → ports d’écoute de Tomcat et de MongoDB
+      grep -hiE "severe|exception" … | tail -5 → cinq dernières erreurs Java de Tomcat
+      mongo --quiet ytms --eval … → la base répond ; « 1 » = OK
+    attendu: 'tomcat8 et mongodb « active », ports 8080 (ou 8443) et 27017 listés, base qui répond « 1 ».'
+    lecture: |
+      - **mongodb inactive ou port 27017 absent** : la base est arrêtée, le TMS ne démarre pas.
+      - **tomcat8 active mais aucun port web** : démarrage encore en cours ou bloqué, regarde les erreurs Tomcat.
+      - **Erreurs Tomcat répétées** : note la première ligne d’erreur, elle nomme souvent le plugin ou la base en cause.
+    si_ko: 'Un service inactif : voir les fiches de relance. Une erreur de connexion à Mongo : vérifie l’espace disque avec le diagnostic Linux avant de relancer.'
+    mots: [diagnostic, tms, tomcat, mongo, cinemanext]
+    voir: [diagnostic-linux, etat-des-services-tms, relancer-mongodb, dernieres-lignes-tomcat]
+    maj: 2026-10-27
+
+  - id: diagnostic-lms
+    titre: Diagnostic LMS (bibliothèque et réception)
+    machine: lms
+    niveau: info
+    commande: |-
+      echo "== Espace du stockage"; df -hP | grep -vE 'tmpfs|udev' | awk 'NR==1||$5+0>=70'; echo "== Passage extra_exchange"; \ps -eo pid,etime,args | grep [e]xtra_exchange; ls -l /tmp/.extra_receive.lock 2>&1; echo "== Derniers passages"; grep -E "STARTING NEW|End IMPORT|Exiting" /var/log/extra_exchange.log 2>/dev/null | tail -4
+    but: 'Complète le diagnostic Linux sur le LMS : stockage presque plein, réception de DCP bloquée.'
+    detail: |
+      df … awk … $5+0>=70 → partitions occupées à 70 % ou plus (seuil plus bas : un LMS plein bloque les ingests)
+      \ps … grep [e]xtra_exchange → un passage de réception tourne-t-il, et depuis combien de temps
+      ls -l /tmp/.extra_receive.lock → verrou du script de réception
+      grep … extra_exchange.log | tail -4 → derniers démarrages et fins de passage
+    attendu: 'Aucune partition au-dessus de 70 %, aucun passage en cours, « No such file » pour le verrou, un « End IMPORT » récent.'
+    lecture: |
+      - **Partition de stockage à 90 % ou plus** : les ingests échouent bientôt, voir la procédure LMS plein.
+      - **Verrou présent sans process** : un passage a planté, il bloque tous les suivants.
+      - **etime de plusieurs heures** : passage bloqué en boucle sur un DCP.
+    si_ko: 'Sur un LMS Debian en FTP, le chemin du log peut différer : utilise les fiches de la rubrique LMS.'
+    mots: [diagnostic, lms, tcs, extra_exchange, stockage]
+    voir: [diagnostic-linux, verrou, derniers-passages, lms-plein]
+    maj: 2026-10-27
+
+  - id: diagnostic-orc
+    titre: Diagnostic ORC (routage et tunnel)
+    machine: orc
+    niveau: info
+    commande: |-
+      echo "== Routage IPv4 activé"; sysctl -n net.ipv4.ip_forward; echo "== Interfaces"; ip -br addr; echo "== Routes"; ip route; echo "== VPN"; systemctl list-units --type=service --state=running --no-legend | grep -iE 'vpn|swan|wireguard' || echo "aucun service VPN actif"; echo "== Sortie Internet"; ping -c 2 -W 2 1.1.1.1 | tail -2; echo "== DNS"; getent hosts example.com || echo "résolution DNS KO"
+    but: 'Complète le diagnostic Linux sur l’ORC, le routeur du site : routage actif, interfaces, tunnel VPN et sortie Internet.'
+    detail: |
+      sysctl -n net.ipv4.ip_forward → 1 = l’ORC route entre ses réseaux
+      ip -br addr → interfaces et adresses sur une ligne chacune
+      ip route → routes connues (réseaux des salles, passerelle)
+      systemctl list-units … | grep -iE 'vpn|swan|wireguard' → service VPN en cours d’exécution, quel que soit son nom
+      ping -c 2 -W 2 1.1.1.1 → sortie Internet (2 essais, 2 s max)
+      getent hosts example.com → résolution de nom
+    attendu: 'ip_forward à 1, interfaces « UP », un service VPN listé, 0 % de perte au ping, une adresse pour example.com.'
+    lecture: |
+      - **ip_forward à 0** : plus aucun trafic entre les réseaux, les salles sont injoignables depuis le TMS.
+      - **Interface « DOWN »** : câble ou switch, voir la procédure serveur absent du réseau.
+      - **Ping réussi mais DNS KO** : serveur DNS à corriger, la sortie Internet existe.
+      - **100 % de perte** : passerelle ou ligne Internet coupée.
+    si_ko: '« aucun service VPN actif » alors que le site a un tunnel : voir la fiche « Le VPN tourne ? ».'
+    mots: [diagnostic, orc, routeur, vpn, nat, internet]
+    voir: [diagnostic-linux, service-vpn, passerelle, dns-utilises]
+    maj: 2026-10-27

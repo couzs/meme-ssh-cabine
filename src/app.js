@@ -450,6 +450,57 @@ if (load('memo_vars_open') === true || S.dirty) vbox.open = true;
 vbox.addEventListener('toggle', () => save('memo_vars_open', vbox.open));
 function openVars(k) { vbox.open = true; const i = $('v-' + k); if (i) { i.scrollIntoView({ block: 'center' }); i.focus({ preventScroll: true }); } }
 
+/* ================= JOURNAL D'INTERVENTION =================
+   Commandes copiées et notes libres, horodatées, gardées pour l’onglet seulement (sessionStorage) : le journal peut contenir
+   des IP réelles, il disparaît à la fermeture de l’onglet. « Copier le compte rendu » produit le texte à coller dans le ticket. */
+const JR_KEY = 'memo_journal', JR_MAX = 200;
+function jrLoad() { try { const v = JSON.parse(sessionStorage.getItem(JR_KEY)); return Array.isArray(v) ? v.filter(e => e && typeof e.t === 'number' && typeof e.text === 'string') : []; } catch (e) { return []; } }
+let JR = jrLoad();
+const jrAuto = () => load('memo_journal_auto') !== false;
+function jrSave() { try { sessionStorage.setItem(JR_KEY, JSON.stringify(JR)); } catch (e) { } const n = $('journal-n'); n.hidden = !JR.length; n.textContent = JR.length; }
+function jrAdd(e) { JR.push({ ...e, t: Date.now() }); if (JR.length > JR_MAX) JR = JR.slice(-JR_MAX); jrSave(); if (dlg.open && dlg.dataset.kind === 'journal') openDlg('journal'); }
+function copyTitle(key) {
+  const m = key.match(/^p:([^:]+):(\d+|all)$/);
+  if (key.startsWith('c:')) return CMD[key.slice(2)] ? CMD[key.slice(2)].titre : '';
+  if (m && PROC[m[1]]) { const p = PROC[m[1]]; return p.titre + (m[2] === 'all' ? ' (toutes les étapes)' : ' · étape ' + (+m[2] + 1) + ' : ' + p.etapes[+m[2]].titre); }
+  return '';
+}
+function logCopy(key, entry) { if (jrAuto()) jrAdd({ k: 'cmd', m: entry.m, titre: copyTitle(key), text: subst(entry.cmd) }); }
+const hhmm = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+function jrReport() {
+  const d = new Date(JR.length ? JR[0].t : Date.now()).toLocaleDateString('fr-FR');
+  let r = 'Intervention du ' + d + (S.site !== NEW_SITE && S.site !== EXAMPLE ? ' · ' + S.site : '') + '\n';
+  JR.forEach(e => {
+    r += '\n' + hhmm(e.t) + ' · ' + (e.k === 'note' ? e.text : '[' + (MACH[e.m] ? MACH[e.m].label : e.m) + '] ' + (e.titre || 'Commande') + '\n```\n' + e.text + '\n```');
+  });
+  return r + '\n';
+}
+function journalHTML() {
+  const items = JR.map((e, i) => '<li><time>' + hhmm(e.t) + '</time><div>' + (e.k === 'note' ? esc(e.text).replace(/\n/g, '<br>') : '<b>' + tagMtxt(e.m) + esc(e.titre || 'Commande') + '</b><pre>' + esc(e.text) + '</pre>') + '</div><button class="ibtn" type="button" data-jr-del="' + i + '" aria-label="Retirer cette ligne">✕</button></li>').join('');
+  return '<p>Les commandes que tu copies et tes notes s’ajoutent ici avec l’heure. À la fin, copie le compte rendu et colle-le dans le ticket. Le journal reste dans cet onglet seulement et disparaît quand tu le fermes.</p>' +
+    '<label class="jr-auto"><input type="checkbox" id="jr-auto"' + (jrAuto() ? ' checked' : '') + '> Ajouter automatiquement chaque commande copiée</label>' +
+    (items ? '<ul class="jr-list">' + items + '</ul>' : '<p class="empty">Journal vide.</p>') +
+    '<textarea class="jr-note" id="jr-note" placeholder="Ajouter une note : ce que tu as constaté, ce que le client a dit…" maxlength="1000"></textarea>' +
+    '<div class="jr-acts"><button class="linkbtn primary" id="jr-addnote" type="button">Ajouter la note</button><button class="linkbtn" id="jr-copy" type="button"' + (JR.length ? '' : ' disabled') + '>Copier le compte rendu</button><button class="linkbtn" id="jr-clear" type="button"' + (JR.length ? '' : ' disabled') + '>Vider le journal</button></div>';
+}
+const tagMtxt = m => MACH[m] ? '<span class="tag">' + esc(MACH[m].label) + '</span> ' : '';
+
+/* ================= ANALYSE D'UNE SORTIE COLLÉE ================= */
+const RULES = (DATA.analyse || []).map(r => { let rx = null; try { rx = new RegExp(r.motif, 'im'); } catch (e) { } return { ...r, rx }; }).filter(r => r.rx);
+const GRAV = { crit: 'À traiter', warn: 'À surveiller', info: 'Bon à savoir' };
+function analyseHTML(text) {
+  const hits = RULES.filter(r => r.rx.test(text));
+  if (!text.trim()) return '';
+  if (!hits.length) return '<p class="empty">Aucun motif connu dans ce texte. Ça ne veut pas dire que tout va bien : relis la sortie avec la page « Lire un résultat de commande », ou cherche un mot de l’erreur dans la recherche.</p>';
+  hits.sort((a, b) => ['crit', 'warn', 'info'].indexOf(a.gravite) - ['crit', 'warn', 'info'].indexOf(b.gravite));
+  return '<div class="an-res">' + hits.map(r => {
+    const m = text.match(r.rx), seen = m ? m[0].trim().split('\n')[0].slice(0, 120) : '';
+    const voir = r.voir.map(v => CMD[v] ? '<a class="linkbtn" href="#c.' + v + '">' + esc(CMD[v].titre) + '</a>' : PROC[v] ? '<a class="linkbtn" href="#p.' + v + '">▶ ' + esc(PROC[v].titre) + '</a>' : PAGE[v] ? '<a class="linkbtn" href="#page.' + v + '">📖 ' + esc(PAGE[v].titre) + '</a>' : '').join('');
+    return '<div class="an-hit ' + r.gravite + '"><b>' + esc(r.titre) + ' <span class="tag ' + (r.gravite === 'crit' ? 'danger' : r.gravite === 'warn' ? 'action' : '') + '">' + GRAV[r.gravite] + '</span></b>' + r.explication +
+      (seen ? '<p class="an-seen">Repéré : ' + esc(seen) + '</p>' : '') + (voir ? '<div class="voir">' + voir + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
+}
+
 /* ================= COPIE ================= */
 let tt;
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('on'), 1900); }
@@ -490,6 +541,7 @@ $('out').addEventListener('click', e => {
   }
   resetPending();
   const p = c.tagName === 'PRE' ? c : scope && scope.querySelector('pre');
+  if (!c.dataset.copy.endsWith(':ticket')) logCopy(c.dataset.copy, entry);
   writeClip(subst(entry.cmd), empty.length ? 'Copié, mais à remplir : ' + empty.join(', ') : entry.msg || 'Copié · à coller sur ' + MACH[entry.m].label, p);
 });
 $('out').addEventListener('toggle', e => { const d = e.target; if (d.matches && d.matches('details.proc')) d.open ? S.open.add(d.dataset.pid) : S.open.delete(d.dataset.pid); }, true);
@@ -522,6 +574,14 @@ function openDlg(kind) {
     $('dlg-t').textContent = 'Nouveautés';
     $('dlg-b').innerHTML = DATA.nouveautes.map(n => '<div class="news-item"><time datetime="' + esc(n.date) + '">' + esc(fmtDate(n.date)) + '</time><b>' + esc(n.titre) + '</b>' + n.texte + '</div>').join('') || '<p>Rien pour l’instant.</p>';
     if (DATA.nouveautes[0]) { save('memo_news_seen', DATA.nouveautes[0].date); $('news-dot').hidden = true; }
+  } else if (kind === 'analyse') {
+    $('dlg-t').textContent = 'Analyser une sortie';
+    $('dlg-b').innerHTML = '<p>Colle ici le résultat d’une commande (erreur, <code>df -h</code>, <code>systemctl status</code>, diagnostic…). Le mémo repère les motifs connus et te dit où aller. Le texte reste dans ce navigateur : il n’est ni envoyé ni mémorisé.</p>' +
+      '<textarea class="an-in" id="an-in" spellcheck="false" placeholder="Colle la sortie ici…"></textarea><div id="an-out" aria-live="polite"></div>';
+  } else if (kind === 'journal') {
+    $('dlg-t').textContent = 'Journal d’intervention';
+    const keep = $('jr-note') ? $('jr-note').value : '';
+    $('dlg-b').innerHTML = journalHTML(); if (keep) $('jr-note').value = keep;
   } else {
     $('dlg-t').textContent = 'Comment utiliser le mémo';
     $('dlg-b').innerHTML =
@@ -534,11 +594,27 @@ function openDlg(kind) {
       (M.contact ? '<h3>Contact</h3><p>' + esc(M.contact) + '</p>' : '') +
       '<h3>Confidentialité</h3><p>Le mémo ne contient aucune donnée de site. Tes IP restent dans ce navigateur, dans un coffre chiffré par ton mot de passe.</p>';
   }
-  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  dlg.dataset.kind = kind;
+  if (!dlg.open) { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
+  if (kind === 'analyse') $('an-in').focus();
 }
+$('dlg-b').addEventListener('input', e => { if (e.target.id === 'an-in') $('an-out').innerHTML = analyseHTML(e.target.value); });
+$('dlg-b').addEventListener('change', e => { if (e.target.id === 'jr-auto') save('memo_journal_auto', e.target.checked); });
+$('dlg-b').addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]'); if (a && dlg.dataset.kind === 'analyse') { dlg.close(); return; }
+  const del = e.target.closest('[data-jr-del]');
+  if (del) { JR.splice(+del.dataset.jrDel, 1); jrSave(); openDlg('journal'); return; }
+  const id = e.target.id;
+  if (id === 'jr-addnote') { const n = $('jr-note'), t = n.value.trim(); if (!t) { n.focus(); return; } n.value = ''; jrAdd({ k: 'note', text: t.slice(0, 1000) }); }
+  else if (id === 'jr-copy') writeClip(jrReport(), 'Compte rendu copié : colle-le dans le ticket');
+  else if (id === 'jr-clear') { if (!e.target.dataset.sure) { e.target.dataset.sure = '1'; e.target.textContent = 'Confirmer'; return; } JR = []; jrSave(); openDlg('journal'); }
+});
 $('dlg-x').addEventListener('click', () => dlg.close());
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 $('btn-news').addEventListener('click', () => openDlg('news'));
+$('btn-analyse').addEventListener('click', () => openDlg('analyse'));
+$('btn-journal').addEventListener('click', () => openDlg('journal'));
+jrSave();
 $('btn-help').addEventListener('click', () => openDlg('help'));
 if (DATA.nouveautes[0] && DATA.nouveautes[0].date > seen) $('news-dot').hidden = false;
 

@@ -1,0 +1,119 @@
+# Règles de « Analyser une sortie » (barre du haut) : on colle le résultat d’une commande, l'outil repère les motifs connus
+# et renvoie vers la fiche ou la procédure utile. Tout se passe dans le navigateur : rien n’est envoyé.
+#   motif    : expression régulière (insensible à la casse), testée sur le texte collé
+#   gravite  : crit (à traiter maintenant) · warn (à surveiller) · info (bon à savoir)
+#   voir     : identifiants de fiches, procédures ou pages (comme dans « voir » des commandes)
+- id: disque-plein
+  titre: Partition presque pleine ou pleine
+  motif: '\b(9\d|100)%\s+/|No space left on device'
+  gravite: crit
+  explication: 'Une partition est à 90 % ou plus, ou une écriture a échoué faute de place. C’est la première cause de pannes (base, logs, ingests).'
+  voir: [disk-sys, lms-plein, espace-disque]
+- id: inodes
+  titre: Inodes épuisés
+  motif: 'IUse%[\s\S]*?\b(9\d|100)%'
+  gravite: crit
+  explication: 'Dans ce « df -i », une partition a presque épuisé ses inodes : il reste peut-être de la place, mais plus de numéros de fichiers (trop de petits fichiers : logs, temporaires).'
+  voir: [inodes]
+- id: connexion-refusee
+  titre: Connexion refusée
+  motif: 'Connection refused|connexion refus'
+  gravite: crit
+  explication: 'La machine répond, mais aucun programme n’écoute sur ce port : service arrêté ou mauvais port.'
+  voir: [ports-en-ecoute, tester-un-port, services-en-echec]
+- id: pas-de-route
+  titre: Aucune route vers la machine
+  motif: 'No route to host|Network is unreachable|Destination Host Unreachable'
+  gravite: crit
+  explication: 'Le chemin réseau n’existe pas ou est coupé : câble, switch, route manquante, machine éteinte.'
+  voir: [serveur-absent, passerelle, ping]
+- id: timeout
+  titre: Délai dépassé
+  motif: 'timed out|Connection timed out|Operation timed out|connect timed out'
+  gravite: crit
+  explication: 'Personne ne répond : pare-feu, NAT, VPN coupé ou équipement hors ligne.'
+  voir: [plugin-distant-timeout, vpn-sans-retour, nat-salle]
+- id: perte-ping
+  titre: Pertes de paquets
+  motif: '([1-9]\d?|100)(\.\d+)?% packet loss'
+  gravite: crit
+  explication: 'Des paquets se perdent (100 % = injoignable). Une perte partielle indique un lien instable : câble, port de switch, saturation.'
+  voir: [ping-continu, serveur-absent]
+- id: dns
+  titre: Résolution de nom en échec
+  motif: 'Name or service not known|Temporary failure in name resolution|could not resolve host|NXDOMAIN'
+  gravite: warn
+  explication: 'Le nom ne se traduit pas en adresse : serveur DNS absent ou erroné. Teste avec une IP pour savoir si le réseau, lui, fonctionne.'
+  voir: [dns-utilises, resolution-dns-d-un-nom]
+- id: service-echec
+  titre: Service en échec
+  motif: 'Active:\s+failed|\bfailed\b.*\.service|loaded\s+failed'
+  gravite: crit
+  explication: 'Un service systemd est tombé. Lis ses dernières lignes de journal avant de le relancer pour comprendre pourquoi.'
+  voir: [services-en-echec, logs-d-un-service-sur-1-h]
+- id: service-inactif
+  titre: Service arrêté
+  motif: '^\s*(inactive|dead)\s*$|Active:\s+inactive'
+  gravite: warn
+  explication: 'Le service n’est pas lancé. Vérifie qu’il n’a pas été arrêté volontairement avant de le démarrer.'
+  voir: [etat-des-services-tms, relancer-mongodb]
+- id: heure-non-synchro
+  titre: Heure non synchronisée
+  motif: 'synchronized:\s+no|NTP (service|synchronized):\s+(inactive|no)'
+  gravite: warn
+  explication: 'L’horloge dérive. Une heure fausse invalide les KDM et décale les séances.'
+  voir: [heure-fausse, heure-fuseau-et-ntp]
+- id: erreur-disque
+  titre: Erreurs matérielles de disque
+  motif: 'I/O error|EXT4-fs error|ata\d+.*(error|failed)|Buffer I/O|SMART.*FAIL|Pending_Sector|degraded'
+  gravite: crit
+  explication: 'Le noyau signale un disque qui lâche ou une grappe RAID dégradée. Prévois un remplacement, évite d’écrire dessus.'
+  voir: [sante-du-disque, reconstruction-raid-avancement]
+- id: memoire
+  titre: Mémoire saturée
+  motif: 'Out of memory|oom-killer|Killed process'
+  gravite: crit
+  explication: 'Le système a tué un programme faute de mémoire (souvent Tomcat ou Mongo).'
+  voir: [ram, top-20-cpu-ram]
+- id: permission
+  titre: Droits insuffisants
+  motif: 'Permission denied|Operation not permitted|must be root'
+  gravite: info
+  explication: 'L’utilisateur n’a pas le droit. Relance avec sudo si la fiche le prévoit ; sinon vérifie le propriétaire du fichier avec ls -l.'
+  voir: [linux-essentiel]
+- id: mongo
+  titre: Base de données injoignable
+  motif: 'couldn.?t connect to server|MongoNetworkError|Failed to connect to 127\.0\.0\.1:27017|connection to .*27017'
+  gravite: crit
+  explication: 'La base Mongo du TMS ne répond pas : arrêtée, ou disque plein.'
+  voir: [mongodb, relancer-mongodb, tms-ko]
+- id: tomcat
+  titre: Erreurs Java / Tomcat
+  motif: 'SEVERE|java\.lang\.\w+(Exception|Error)|OutOfMemoryError'
+  gravite: warn
+  explication: 'L’interface web du TMS a rencontré une erreur. La première ligne d’erreur nomme souvent le plugin ou la base en cause.'
+  voir: [dernieres-lignes-tomcat, relancer-l-interface-web]
+- id: licence
+  titre: Problème de licence
+  motif: 'licen[cs]e.*(expired|invalid|not found|error)|licence.*(expir|invalide)'
+  gravite: warn
+  explication: 'La licence est refusée ou expirée.'
+  voir: [erreurs-de-licence, lire-la-licence]
+- id: kdm
+  titre: KDM expirée ou refusée
+  motif: 'KDM.*(expired|expir|invalid|not yet valid|wrong)|certificate.*(expired|not yet valid)'
+  gravite: warn
+  explication: 'Une clé de lecture est hors période de validité ou ne correspond pas à la salle. Vérifie aussi l’heure du serveur.'
+  voir: [kdm-mail, kdm-scan-zero, heure-fausse]
+- id: ftp
+  titre: Échec FTP (530 / 421)
+  motif: '\b530\b|\b421\b|Login incorrect|Login authentication failed'
+  gravite: warn
+  explication: 'Identifiants refusés ou serveur FTP saturé. Sur le LMS Debian, le dossier FTP plein donne aussi ces erreurs.'
+  voir: [echecs-de-connexion-aux-bibliotheques, lms-ftp-plein]
+- id: ssh-cle
+  titre: Clé SSH modifiée
+  motif: 'REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed'
+  gravite: info
+  explication: 'La machine a été réinstallée ou son adresse a changé de propriétaire. Si c’est attendu, supprime l’ancienne entrée avec ssh-keygen -R ; sinon, ne continue pas.'
+  voir: [debuter]

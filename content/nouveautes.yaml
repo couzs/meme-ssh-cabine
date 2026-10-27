@@ -1,6 +1,12 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
 - date: 2026-10-27
+  titre: Journal d’intervention, analyse d’une sortie, diagnostic en une commande
+  texte: |
+    - Bouton « Journal » : chaque commande copiée s’y ajoute avec l’heure, tu peux ajouter des notes, puis « Copier le compte rendu » pour le ticket. Le journal reste dans l’onglet et disparaît à sa fermeture.
+    - Bouton « Analyser » : colle le résultat d’une commande, le mémo repère les motifs connus (disque plein, connexion refusée, service en échec, heure non synchronisée, KDM…) et renvoie vers la bonne fiche. Les règles sont dans content/analyse.yaml.
+    - Nouvelle rubrique « Diagnostic en une commande » : un copier-coller par machine (Linux, TMS, LMS, ORC) qui ne détaille que les problèmes.
+- date: 2026-10-27
   titre: Sommaire des pages, consultés récemment, réseau lent
   texte: |
     - Les pages longues (glossaire, repères, guides) affichent un sommaire cliquable en haut.
