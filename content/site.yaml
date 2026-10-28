@@ -25,6 +25,7 @@ machines:
   lin: { label: Linux, desc: "Commande Linux générique : fonctionne sur le TMS, l’ORC et le LMS." }
   dor: { label: Doremi, desc: "Serveur de salle Doremi (DCP2000, ShowVault, IMS). Système réduit : pas de nc, timeout, base64 ni curl." }
   jnr: { label: JNIOR, desc: "Boîtier d’automation en telnet. Une seule commande à la fois." }
+  nas: { label: NAS, desc: "NAS QNAP (ou autre NAS) : système Linux réduit, certaines commandes manquent. On s’y connecte en SSH, en général par un tunnel via le TMS." }
   win: { label: PC, desc: "PC du site ou ton poste Windows (PowerShell en administrateur)." }
   man: { label: Manuel, desc: "Action à faire à la main : interface web, appel au client, vérification sur place." }
 

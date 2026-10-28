@@ -30,6 +30,9 @@ intro: Les mots du métier en une ligne, pour lire les procédures sans se perdr
 | DHCP | Attribution automatique d’une IP. En cabine, les équipements sont en IP fixe ; « Automatic » sans serveur DHCP = pas d’IP. |
 | SNMP | Protocole de supervision : le TMS et le monitoring lisent l’état des équipements. |
 | SSH | Connexion sécurisée à une machine distante, en ligne de commande (PuTTY, Windows Terminal). |
+| Tunnel SSH (-L) | Redirection de port à travers une connexion SSH : un port de ton poste est relié, via le TMS, à un équipement du cinéma (interface web d’un NAS, SSH d’un NAS). Voir « Le tunnel SSH expliqué ». |
+| Rebond SSH (-J) | « Jump host » : ssh se connecte d’abord à une machine relais (le TMS) puis rebondit vers l’équipement cible, en une seule commande. |
+| QNAP / QTS | NAS de marque QNAP et son système QTS. Interface web sur les ports 8080 (HTTP) et 443 (HTTPS), SSH sur le port 22 s’il est activé. |
 | root / sudo | root = administrateur Linux ; sudo = exécuter une commande en administrateur. |
 | IMAP | Protocole de lecture des mails : le TMS relève ainsi la boîte KDM. |
 | FTP (ASCII / binaire) | Transfert de fichiers. Toujours en binaire pour un DCP ou un .jnior : le mode ASCII modifie les fins de ligne. |

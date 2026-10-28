@@ -1,0 +1,42 @@
+id: qnap-acces-distant
+theme: Stockage
+titre: Accéder à un NAS QNAP à distance par un tunnel SSH
+quand: 'Il faut consulter un NAS QNAP du cinéma (état des disques, dossiers, journaux) depuis ton poste, alors que seul le TMS du site peut le joindre.'
+symptomes: [qnap, nas, tunnel ssh, interface web, accès distant, qts, ssh nas]
+comprendre: |
+  Le NAS est sur le réseau du cinéma : ton poste ne le voit pas, mais le TMS, lui, le voit. On utilise donc le TMS comme **relais** : tu te connectes au TMS en SSH et tu lui demandes de transmettre une connexion vers le NAS. Cela s’appelle un **tunnel SSH** (option `-L`). Pour ton poste, le NAS devient accessible sur un port local (par exemple `localhost:8443`).
+  Il y a deux façons d’en profiter : l’**interface web** du QNAP dans ton navigateur, ou un **terminal SSH** sur le NAS. On vérifie d’abord, depuis le TMS, que le NAS répond et que le TMS accepte les tunnels, puis on choisit une voie.
+  On travaille en **lecture seule** : consulter, pas modifier. Pour le principe du tunnel, voir la page « Le tunnel SSH expliqué ».
+etapes:
+  - ref: qnap-repond-depuis-le-tms
+    titre: 'Sur le TMS : le NAS répond-il ?'
+    attendu: 'Ping sans perte, 8080 ou 443 ouvert (22 aussi si on veut un SSH direct)'
+  - ref: qnap-tunnel-autorise-sur-le-tms
+    titre: 'Sur le TMS : les tunnels sont-ils autorisés ?'
+    attendu: 'allowtcpforwarding yes (ou all, local). Si no : s’arrêter, ne pas modifier la configuration (Puppet)'
+  - titre: Prévenir le client et préparer l’accès
+    machine: man
+    consigne: 'Informer le client que tu consultes son NAS, en lecture seule. Demander le compte administrateur du QNAP et son mot de passe (jamais écrits dans le ticket). Noter dans le ticket l’heure de début.'
+  - ref: qnap-tunnel-web-https
+    titre: 'Voie 1, interface web : ouvrir le tunnel (garder la fenêtre ouverte)'
+  - titre: 'Voie 1, interface web : ouvrir la page du NAS'
+    machine: man
+    consigne: 'Dans le navigateur, ouvrir https://localhost:8443 et accepter l’alerte de certificat. Se connecter avec le compte du client. Regarder l’état des disques et du volume (rubrique de gestion du stockage de QTS) et les journaux système. Ne cliquer sur aucune action de réparation, de reconstruction ni de mise à jour. Si le 443 est fermé : tunnel HTTP, puis http://localhost:8080.'
+  - ref: qnap-ssh-par-rebond
+    titre: 'Voie 2, SSH direct : un seul terminal (rebond par le TMS)'
+    attendu: 'Une invite du NAS, du type [~] #'
+  - ref: qnap-ssh-tunnel-fenetre-1
+    titre: 'Voie 2 bis, SSH en deux fenêtres : ouvrir le tunnel (garder la fenêtre)'
+  - ref: qnap-ssh-tunnel-fenetre-2
+    titre: 'Voie 2 bis, SSH en deux fenêtres : se connecter (nouvelle fenêtre)'
+    attendu: 'Une invite du NAS, du type [~] #'
+  - ref: qnap-etat-du-raid
+    titre: 'Sur le NAS : état du RAID'
+  - ref: qnap-espace-disque
+    titre: 'Sur le NAS : espace disque'
+  - titre: Fermer proprement et consigner
+    machine: man
+    consigne: 'Quitter le NAS (exit), puis Ctrl+C dans la fenêtre du tunnel. Dans le ticket : heure de début et de fin, ce qui a été consulté, ce qui a été constaté, et la mention « aucune modification ». Ne jamais y écrire le mot de passe.'
+attention: 'Tant que le tunnel est ouvert, quiconque utilise ton poste peut atteindre le NAS : ferme-le dès que tu as fini. Aucune modification, aucun redémarrage et aucune mise à jour du NAS sans accord écrit du client. Ne jamais essayer des mots de passe par défaut : un mot de passe refusé deux fois, on s’arrête et on le demande.'
+copier_tout: false
+maj: 2026-10-28

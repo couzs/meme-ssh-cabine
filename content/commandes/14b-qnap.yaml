@@ -1,0 +1,266 @@
+id: qnap
+titre: NAS QNAP à distance (tunnel SSH)
+groupe: Stockage
+intro: 'Atteindre un NAS QNAP du cinéma depuis ton poste, alors que seul le TMS du site peut le joindre. Le TMS sert de relais : on ouvre un tunnel SSH vers lui, et le NAS apparaît comme s’il était sur ton poste. Ordre qui marche : le NAS répond-il depuis le TMS ? le TMS accepte-t-il les tunnels ? puis interface web ou SSH. Lecture seule d’abord, aucune modification sans accord écrit du client.'
+
+commandes:
+  - id: qnap-repond-depuis-le-tms
+    titre: Le QNAP répond-il depuis le TMS ?
+    machine: lin
+    niveau: info
+    commande: |-
+      ping -c 3 {NAS} ; for p in 8080 443 22 445 21; do timeout 3 bash -c "echo > /dev/tcp/{NAS}/$p" 2>/dev/null && echo "port $p : ouvert" || echo "port $p : fermé ou filtré"; done
+    but: 'À lancer sur le TMS, avant tout tunnel. Vérifie que le NAS est vivant et quels services il propose : interface web, SSH, partages. Inutile d’ouvrir un tunnel vers un port fermé.'
+    detail: |
+      ping -c 3 → envoie 3 paquets au NAS et attend les réponses (sans -c 3, il tourne jusqu’à Ctrl+C)
+      ; → enchaîne la commande suivante, même si le ping échoue
+      for p in 8080 443 22 445 21 → répète le test pour chacun de ces ports
+      bash -c "echo > /dev/tcp/IP/PORT" → bash tente d’ouvrir une connexion TCP vers ce port, sans outil à installer
+      timeout 3 → abandonne au bout de 3 secondes si rien ne répond
+      && echo "ouvert" || echo "fermé" → affiche « ouvert » si la connexion a réussi, « fermé ou filtré » sinon
+    exemple: |
+      PING 192.0.2.8 (192.0.2.8) 56(84) bytes of data.
+      64 bytes from 192.0.2.8: icmp_seq=1 ttl=64 time=0.302 ms
+      64 bytes from 192.0.2.8: icmp_seq=2 ttl=64 time=0.348 ms
+      64 bytes from 192.0.2.8: icmp_seq=3 ttl=64 time=0.311 ms
+
+      --- 192.0.2.8 ping statistics ---
+      3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+      port 8080 : ouvert
+      port 443 : ouvert
+      port 22 : ouvert
+      port 445 : ouvert
+      port 21 : ouvert
+    lecture: |
+      - **0% packet loss** : le NAS répond. 100 % de perte : câble, IP erronée ou NAS éteint (une MAC lue avec `ip neigh` dit qui répond).
+      - **8080** : interface web du QNAP en HTTP. **443** : la même en HTTPS (si activée).
+      - **22** : SSH. Désactivé par défaut sur un QNAP : « ouvert » veut dire qu’il est déjà activé.
+      - **445** : partages Windows (SMB). **21** : FTP.
+    attendu: 'Ping sans perte, et 8080 ou 443 ouvert (interface web). 22 ouvert si on veut un SSH direct'
+    si_ko: |
+      - Ping KO : vérifier l’IP donnée par le client, le câble et le switch avant d’aller plus loin.
+      - Port 22 fermé : SSH désactivé sur le NAS. L’activer est une modification (réglage Telnet / SSH du QNAP) : accord du client. En attendant, l’interface web suffit.
+      - Tous les ports fermés mais ping OK : le NAS filtre le TMS (pare-feu du QNAP) : demander au client.
+    voir: [ping, qnap-tunnel-autorise-sur-le-tms]
+    mots: [qnap, nas, ports, 8080, ssh, qts]
+    maj: 2026-10-28
+
+  - id: qnap-tunnel-autorise-sur-le-tms
+    titre: Le TMS autorise-t-il les tunnels ?
+    machine: lin
+    niveau: info
+    commande: |-
+      sshd -T 2>/dev/null | grep -iE "allowtcpforwarding|permittunnel"
+    but: 'À lancer sur le TMS (en root). Le tunnel passe par le service SSH du TMS : il doit accepter de relayer des connexions vers un autre équipement (« TCP forwarding »). Sinon le tunnel s’ouvre mais refuse tout.'
+    detail: |
+      sshd -T → affiche la configuration SSH réellement appliquée sur cette machine (demande root)
+      2>/dev/null → cache les messages d’erreur ; sans root, la commande semble alors ne rien répondre
+      | → envoie le résultat à la commande suivante
+      grep -iE "a|b" → ne garde que les lignes contenant l’un des deux mots, majuscules ou minuscules
+    exemple: |
+      allowtcpforwarding yes
+      permittunnel no
+    lecture: |
+      - **allowtcpforwarding yes** (ou `all`, ou `local`) : les tunnels de type `-L` sont autorisés, c’est ce qu’il faut.
+      - **allowtcpforwarding no** : tunnels refusés.
+      - **permittunnel no** n’a pas d’importance ici : il concerne les interfaces virtuelles `tun`, pas les redirections de port.
+    attendu: 'allowtcpforwarding yes (ou all, local)'
+    si_ko: |
+      - Aucune ligne : tu n’es pas root. Faire `sudo -i` puis relancer.
+      - `no` : ne pas modifier la configuration SSH (gérée par Puppet, une modification locale serait écrasée). Demander au N3 ou au client une autre voie d’accès.
+    voir: [passer-root]
+    mots: [ssh, tunnel, forwarding, sshd, puppet]
+    maj: 2026-10-28
+
+  - id: qnap-tunnel-web-https
+    titre: Tunnel vers l’interface web du QNAP (HTTPS)
+    machine: win
+    niveau: info
+    commande: |-
+      ssh -N -L 8443:{NAS}:443 sysadm@{TMS_ACCES}
+    but: 'À lancer sur TON poste (PowerShell, Windows Terminal, terminal Linux ou macOS), pas sur le TMS. Le port 8443 de ton poste devient une porte vers l’interface web du NAS, en passant par le TMS. Tu ouvres ensuite https://localhost:8443 dans ton navigateur.'
+    detail: |
+      ssh → le client SSH de ton poste
+      -N → n’exécute aucune commande sur le TMS : la connexion ne sert que de tunnel
+      -L 8443:NAS:443 → redirection locale : tout ce qui arrive sur le port 8443 de ton poste est transmis, depuis le TMS, vers le port 443 du NAS
+      8443 → le port d’écoute sur ton poste ; au choix au-dessus de 1024, à changer s’il est déjà pris
+      NAS:443 → la destination telle que le TMS la voit : l’IP du NAS et le port de son interface HTTPS
+      sysadm@adresse du TMS → le compte et la machine qui servent de relais ; le mot de passe est celui de ce compte sur le TMS
+    exemple: |
+      PS C:\> ssh -N -L 8443:192.0.2.8:443 sysadm@tms.exemple.fr
+      sysadm@tms.exemple.fr's password:
+      (la fenêtre ne rend plus la main : le tunnel est ouvert)
+    lecture: |
+      - Après le mot de passe, **rien ne s’affiche et la ligne ne revient pas** : c’est normal, le tunnel est ouvert. Laisse cette fenêtre ouverte.
+      - Dans le navigateur : `https://localhost:8443`.
+      - **Alerte de certificat** : normale (certificat auto-signé du NAS). Accepter l’exception.
+      - Identifiant : le compte administrateur du QNAP (souvent `admin`), mot de passe fourni par le client.
+      - Pour fermer le tunnel : Ctrl+C dans la fenêtre.
+    attendu: 'La page de connexion du QNAP s’affiche dans le navigateur'
+    si_ko: |
+      - « Address already in use » : le port 8443 est déjà pris sur ton poste. Prendre 8444 (`-L 8444:…`) et ouvrir https://localhost:8444.
+      - Page qui ne charge pas, et dans la fenêtre « connect failed: Connection refused » : le TMS n’arrive pas à joindre le NAS sur ce port. Refaire la fiche « Le QNAP répond-il depuis le TMS ? ».
+      - « administratively prohibited » : le TMS refuse les tunnels (fiche « Le TMS autorise-t-il les tunnels ? »).
+      - Tu te connectes au TMS par un tunnel du client (par exemple `ssh -p 2201 sysadm@localhost`) : garde exactement ces options et ajoute le `-L`.
+      - Page qui redirige vers l’IP du NAS : refaire avec le même numéro de port local et distant.
+    attention: 'Tant que le tunnel est ouvert, quiconque utilise ton poste peut atteindre le NAS : ferme-le dès que tu as fini. Ne jamais écrire le mot de passe du NAS dans le ticket, et aucune modification, redémarrage ou mise à jour du NAS sans accord écrit du client.'
+    voir: [qnap-repond-depuis-le-tms, qnap-tunnel-web-http]
+    mots: [qnap, tunnel, ssh, -L, interface web, https, 8443, qts]
+    maj: 2026-10-28
+
+  - id: qnap-tunnel-web-http
+    titre: Tunnel vers l’interface web du QNAP (HTTP)
+    machine: win
+    niveau: info
+    commande: |-
+      ssh -N -L 8080:{NAS}:8080 sysadm@{TMS_ACCES}
+    but: 'Même principe que le tunnel HTTPS, mais vers le port 8080 : à utiliser si le 443 est fermé sur le NAS. On ouvre ensuite http://localhost:8080.'
+    detail: |
+      -L 8080:NAS:8080 → le port 8080 de ton poste est relié au port 8080 du NAS (même numéro des deux côtés : le QNAP s’en sert pour ses redirections)
+      -N → pas de commande distante, tunnel seulement
+      sysadm@adresse du TMS → le relais, comme pour le tunnel HTTPS
+    exemple: |
+      PS C:\> ssh -N -L 8080:192.0.2.8:8080 sysadm@tms.exemple.fr
+      sysadm@tms.exemple.fr's password:
+    lecture: |
+      - Navigateur : `http://localhost:8080` (pas de cadenas, c’est normal en HTTP).
+      - Entre ton poste et le TMS, tout est chiffré par SSH. Entre le TMS et le NAS, le trafic circule en clair sur le réseau du cinéma : préférer le HTTPS quand il est disponible.
+    si_ko: 'Mêmes causes que pour le tunnel HTTPS : port local déjà pris (prendre un autre numéro), NAS injoignable depuis le TMS, tunnels refusés.'
+    attention: 'Ferme le tunnel avec Ctrl+C dès que tu as fini.'
+    voir: [qnap-tunnel-web-https]
+    mots: [qnap, tunnel, http, 8080]
+    maj: 2026-10-28
+
+  - id: qnap-ssh-par-rebond
+    titre: SSH sur le QNAP en une commande (rebond par le TMS)
+    machine: win
+    niveau: info
+    commande: |-
+      ssh -J sysadm@{TMS_ACCES} admin@{NAS}
+    but: 'À lancer sur TON poste. Ouvre un terminal directement sur le NAS en passant par le TMS, sans tunnel à gérer. Le plus simple si ton client SSH le permet.'
+    detail: |
+      ssh → le client SSH de ton poste
+      -J sysadm@adresse du TMS → « jump host » : ssh se connecte d’abord au TMS, puis rebondit de là vers le NAS
+      admin@NAS → le compte du NAS (administrateur QNAP) et son IP, atteints depuis le TMS
+    exemple: |
+      PS C:\> ssh -J sysadm@tms.exemple.fr admin@192.0.2.8
+      sysadm@tms.exemple.fr's password:
+      admin@192.0.2.8's password:
+      [~] #
+    lecture: |
+      - **Deux mots de passe**, dans cet ordre : celui de `sysadm` sur le TMS, puis celui du compte du NAS (fourni par le client).
+      - À la première connexion, SSH demande de confirmer l’empreinte : `yes`, deux fois (TMS puis NAS).
+      - L’invite d’un QNAP ressemble à `[~] #`. Ce n’est pas un Linux complet : certaines commandes habituelles manquent.
+      - `exit` pour quitter le NAS et fermer la connexion.
+    attendu: 'Une invite de commande du NAS'
+    si_ko: |
+      - « unknown option -J » : client SSH trop ancien (avant la version 7.3), ou PuTTY qui ne sait pas rebondir. Utiliser la méthode « SSH en deux fenêtres » ou le tunnel web.
+      - « Connection refused » après le premier mot de passe : SSH désactivé sur le NAS (port 22 fermé, voir la première fiche).
+      - « Permission denied » : mot de passe ou compte incorrect. Deux essais maximum, puis le redemander au client.
+    attention: 'Ne jamais deviner ni essayer des mots de passe par défaut. Coller une seule commande à la fois : un mot de passe demandé avale les lignes suivantes. Ne rien noter du mot de passe dans le ticket.'
+    voir: [qnap-ssh-tunnel-fenetre-1, qnap-repond-depuis-le-tms]
+    mots: [qnap, ssh, jump, proxyjump, -J, rebond, admin]
+    maj: 2026-10-28
+
+  - id: qnap-ssh-tunnel-fenetre-1
+    titre: 'SSH en deux fenêtres : 1) ouvrir le tunnel'
+    machine: win
+    niveau: info
+    commande: |-
+      ssh -N -L 2222:{NAS}:22 sysadm@{TMS_ACCES}
+    but: 'Première moitié de la méthode « deux fenêtres », pour les clients SSH qui ne savent pas faire de rebond. Le port 2222 de ton poste devient une porte vers le SSH du NAS. Dans une seconde fenêtre, on se connectera à ce port.'
+    detail: |
+      -N → tunnel seulement, aucune commande distante
+      -L 2222:NAS:22 → ce qui arrive sur le port 2222 de ton poste est envoyé, depuis le TMS, vers le port 22 (SSH) du NAS
+      2222 → port local au choix (au-dessus de 1024) ; un port différent par NAS si tu en visites plusieurs
+      sysadm@adresse du TMS → le relais
+    exemple: |
+      PS C:\> ssh -N -L 2222:192.0.2.8:22 sysadm@tms.exemple.fr
+      sysadm@tms.exemple.fr's password:
+      (la fenêtre ne rend plus la main : laisse-la ouverte)
+    lecture: 'Comme pour le tunnel web : après le mot de passe, la fenêtre ne rend pas la main, c’est normal. **Ne la ferme pas** : ouvre une deuxième fenêtre et passe à la fiche suivante.'
+    si_ko: '« Address already in use » : prendre un autre port local (2223) et le reporter dans la fiche suivante.'
+    voir: [qnap-ssh-tunnel-fenetre-2]
+    mots: [qnap, ssh, tunnel, 2222, deux fenêtres, putty]
+    maj: 2026-10-28
+
+  - id: qnap-ssh-tunnel-fenetre-2
+    titre: 'SSH en deux fenêtres : 2) se connecter par le tunnel'
+    machine: win
+    niveau: info
+    commande: |-
+      ssh -p 2222 admin@localhost
+    but: 'Seconde moitié, à lancer dans une NOUVELLE fenêtre pendant que la première garde le tunnel ouvert. Tu te connectes à ton propre poste, et le tunnel envoie la connexion vers le NAS.'
+    detail: |
+      ssh → le client SSH
+      -p 2222 → se connecte au port 2222 (celui où le tunnel écoute), pas au port 22 habituel
+      admin@localhost → le compte du NAS ; localhost désigne ton propre poste, c’est le tunnel qui fait la suite
+    exemple: |
+      PS C:\> ssh -p 2222 admin@localhost
+      admin@localhost's password:
+      [~] #
+    lecture: |
+      - **Un seul mot de passe** : celui du compte du NAS (le TMS a déjà été authentifié dans la première fenêtre).
+      - À la première connexion : confirmer l’empreinte avec `yes`.
+      - `exit` pour quitter le NAS. Puis Ctrl+C dans la première fenêtre pour fermer le tunnel.
+    attendu: 'Une invite de commande du NAS'
+    si_ko: |
+      - « REMOTE HOST IDENTIFICATION HAS CHANGED » : le couple `localhost:2222` a déjà servi pour un autre NAS ou un autre site. Utiliser un port local différent pour chaque NAS (2223, 2224…), ou effacer l’ancienne empreinte sur ton poste avec `ssh-keygen -R "[localhost]:2222"` (cela ne touche que ton poste).
+      - « Connection refused » : la première fenêtre n’est plus ouverte, ou le port local diffère.
+      - Connexion qui se coupe aussitôt : SSH désactivé sur le NAS, ou NAS injoignable depuis le TMS.
+    attention: 'Ne jamais essayer des mots de passe par défaut. Un mot de passe refusé deux fois : arrêter et le demander au client.'
+    voir: [qnap-ssh-tunnel-fenetre-1, qnap-ssh-par-rebond]
+    mots: [qnap, ssh, localhost, 2222, empreinte]
+    maj: 2026-10-28
+
+  - id: qnap-etat-du-raid
+    titre: État du RAID du QNAP
+    machine: nas
+    niveau: info
+    commande: |-
+      cat /proc/mdstat
+    but: 'Une fois connecté en SSH sur le NAS : le RAID est-il complet, dégradé ou en reconstruction ? C’est le premier contrôle d’un NAS qui ralentit ou qui alerte.'
+    detail: |
+      cat → affiche le contenu d’un fichier
+      /proc/mdstat → fichier du noyau qui décrit les RAID logiciels, leurs disques et leur état
+    exemple: |
+      Personalities : [raid1] [raid5] [raid6]
+      md1 : active raid5 sda3[0] sdb3[1] sdc3[2] sdd3[3]
+            11708123136 blocks super 1.0 level 5, 64k chunk, algorithm 2 [4/4] [UUUU]
+
+      md9 : active raid1 sda1[0] sdb1[1] sdc1[2] sdd1[3]
+            530048 blocks [4/4] [UUUU]
+    lecture: |
+      - **[4/4] [UUUU]** : les 4 disques sont présents. Chaque `U` est un disque en bonne santé.
+      - **[3/4] [UU_U]** : un disque manque ou est en panne (le `_`). RAID dégradé : prévenir le client.
+      - **recovery = 42%** : reconstruction en cours (voir « Avancement d’une reconstruction RAID »).
+      - Les petits volumes (`md9`, `md13`, `md256`…) sont des RAID système propres au QNAP : ils répètent en général le même état. Regarder surtout le plus gros.
+    attendu: 'Tous les disques en U ([4/4] [UUUU])'
+    si_ko: 'Un `_` ou une reconstruction : le noter dans le ticket avec l’heure et prévenir le client. Ne rien lancer (remplacement de disque, reconstruction, redémarrage) sans son accord écrit.'
+    voir: [reconstruction-raid-avancement, qnap-espace-disque]
+    mots: [qnap, raid, mdstat, disque, dégradé, reconstruction]
+    maj: 2026-10-28
+
+  - id: qnap-espace-disque
+    titre: Espace disque du QNAP
+    machine: nas
+    niveau: info
+    commande: |-
+      df -h
+    but: 'Une fois connecté en SSH sur le NAS : le volume de données est-il plein ? Un volume plein empêche les dépôts de DCP et fait échouer des copies.'
+    detail: |
+      df → disk free : espace utilisé et libre de chaque volume
+      -h → tailles lisibles (K, M, G, T)
+    exemple: |
+      Filesystem                Size      Used Available Use% Mounted on
+      /dev/md9                493.5M    145.1M    348.4M  29% /mnt/HDA_ROOT
+      /dev/mapper/cachedev1      10.9T      8.2T      2.7T  75% /share/CACHEDEV1_DATA
+    lecture: |
+      - Ne regarder que le **gros volume de données** (souvent monté sous `/share/…`) : c’est lui qui compte.
+      - Les petits volumes système peuvent être presque pleins par construction : en général sans gravité.
+      - **Use% proche de 100 %** sur le volume de données = panne probable des dépôts.
+    attendu: 'Volume de données sous 90 %'
+    si_ko: 'Volume plein : ne rien supprimer sans validation écrite du client. Lister ce qui prend de la place (dossiers les plus gros) et lui soumettre la liste.'
+    voir: [qnap-etat-du-raid]
+    mots: [qnap, df, espace, plein, volume]
+    maj: 2026-10-28

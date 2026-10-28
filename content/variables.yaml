@@ -136,6 +136,18 @@
   format: ip
   exemple: 192.0.2.22
 
+# --- NAS QNAP & tunnel SSH ---
+- cle: NAS
+  libelle: IP du NAS QNAP
+  groupe: NAS & tunnel SSH
+  format: ip
+  exemple: 192.0.2.8
+- cle: TMS_ACCES
+  libelle: Adresse du TMS pour s’y connecter depuis ton poste
+  groupe: NAS & tunnel SSH
+  format: host
+  exemple: tms.exemple.fr
+
 # --- DCP & ingest ---
 - cle: CPL
   libelle: UUID de la CPL

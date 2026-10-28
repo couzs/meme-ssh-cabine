@@ -1,5 +1,12 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
+- date: 2026-10-28
+  titre: NAS QNAP à distance par un tunnel SSH
+  texte: |
+    - Nouvelle procédure « Accéder à un NAS QNAP à distance par un tunnel SSH » : le NAS répond-il depuis le TMS, les tunnels sont-ils autorisés, interface web ou SSH, fermeture et consignation dans le ticket.
+    - Rubrique Stockage « NAS QNAP à distance » : tunnel vers l’interface web (HTTPS et HTTP), SSH en une commande (rebond par le TMS), SSH en deux fenêtres, état du RAID et espace disque du NAS. Chaque commande est décortiquée morceau par morceau.
+    - Nouvelle page Apprendre « Le tunnel SSH expliqué » : schéma, anatomie de `-L`, `-J` et pièges.
+    - Nouvelle machine « NAS » et variables « IP du NAS QNAP » (NAS) et « Adresse du TMS pour s’y connecter depuis ton poste » (TMS_ACCES) dans « Mon site ».
 - date: 2026-10-27
   titre: Journal d’intervention, analyse d’une sortie, diagnostic en une commande
   texte: |
