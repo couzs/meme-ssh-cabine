@@ -14,7 +14,10 @@
     "node": ">=20"
   },
   "dependencies": {
-    "js-yaml": "4.1.0",
+    "js-yaml": "4.3.2",
     "marked": "18.1.2"
+  },
+  "devDependencies": {
+    "wrangler": "4.156.0"
   }
 }
