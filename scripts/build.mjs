@@ -201,7 +201,7 @@ marked.use({
 const pages = [];
 for (const [dir, type] of [['apprendre', 'guide'], ['reperes', 'ref']]) {
   for (const file of list(dir).filter(f => f.endsWith('.md'))) {
-    const src = fs.readFileSync(file, 'utf8');
+    const src = fs.readFileSync(file, 'utf8').replace(/\r\n?/g, '\n');
     const m = src.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
     if (!m) { err(file, 'en-tête « --- … --- » manquant'); continue; }
     let fm; try { fm = yaml.load(m[1]) || {}; } catch (e) { err(file, 'en-tête YAML illisible : ' + e.message); continue; }
