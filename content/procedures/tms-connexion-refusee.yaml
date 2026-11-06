@@ -1,0 +1,31 @@
+id: tms-connexion-refusee
+theme: TMS & KDM
+titre: 'Connexion à l’interface du TMS refusée (la fenêtre vibre)'
+quand: 'Le client tape son identifiant sur la page de connexion du TMS, clique sur « Sign in » et la fenêtre vibre, sans message d’erreur.'
+symptomes: [sign in, connexion impossible, fenêtre qui vibre, mot de passe, identifiant, login, 401, réinitialisation]
+comprendre: |
+  La fenêtre qui vibre est l’animation d’un **échec d’authentification sans message**. Avant de chercher un problème de mot de passe, il faut établir : (1) le TMS fonctionne-t-il, (2) la demande de connexion arrive-t-elle jusqu’à lui, (3) l’identifiant tapé existe-t-il. Le lien que le client utilise peut être un **proxy d’accès** : ne pas conclure sur la façon dont le TMS authentifie avant d’avoir vu la requête dans son journal.
+
+  Un « 530 Login incorrect » dans les journaux est une erreur **FTP** d’un pilote d’équipement : sans rapport avec la connexion web.
+copier_tout: false
+etapes:
+  - ref: etat-des-services-tms
+    titre: Le TMS tourne ?
+    attendu: 'tomcat8 et mongodb actifs'
+  - ref: acces-web-externes-du-jour
+    titre: La page de connexion est-elle servie ? Y a-t-il un POST ?
+    attendu: 'Des GET en 200 depuis le poste du client. Aucun POST de connexion = la demande n’arrive pas ou le client n’a pas cliqué'
+  - ref: connexion-web-en-direct
+    titre: Capture pendant l’essai du client
+    attendu: 'Le client clique une seule fois sur « Sign in » : une requête 401/403, une 200 puis retour au login, ou aucune'
+  - ref: comptes-locaux-du-tms
+    titre: L’identifiant existe-t-il ?
+    attendu: 'La liste des identifiants du TMS (sans mot de passe)'
+  - titre: Questions au client
+    machine: man
+    consigne: 'Quel identifiant lui a-t-on donné (pas son e-mail) ? D’où vient le lien de réinitialisation reçu (expéditeur, nom du site dans le lien) ? Quelle adresse tape-t-il pour ouvrir le TMS ? Fenêtre privée ou autre navigateur, mot de passe retapé à la main sans espace.'
+  - titre: Réinitialisation
+    machine: man
+    consigne: 'Un mot de passe local se réinitialise par le N3 ou le support. Ne jamais envoyer de mot de passe par e-mail ni l’écrire dans le ticket.'
+attention: 'Ne tester aucun mot de passe, ne lire aucun hash, ne pas modifier un compte depuis la base. N’affirmer dans un message au client que « le TMS n’accepte pas telle forme d’identifiant » qu’après avoir vu la requête de connexion dans le journal.'
+maj: 2026-11-06

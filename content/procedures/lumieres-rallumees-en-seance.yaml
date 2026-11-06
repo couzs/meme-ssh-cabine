@@ -1,0 +1,40 @@
+id: lumieres-rallumees-en-seance
+theme: Automation
+titre: 'Lumières de salle rallumées pendant la séance (Barco)'
+quand: 'Les lumières de la salle sont remontées à 100 % avant la fin du film, sans que la playlist le prévoie. Le serveur de salle est un Barco (ICMP) : un package de diagnostic est disponible.'
+symptomes: [lumières rallumées, éclairage 100 %, pendant le film, générique, cue manuel, barco, sp2k, icmp, package diagnostic]
+comprendre: |
+  Le lecteur Barco trace chaque **cue**. S’il vient de la **playlist** (`from [SHOW]`), il était programmé. S’il vient d’un **utilisateur** (`from [USER:…]`), il a été envoyé après coup, à la main ou par un logiciel connecté au lecteur (le TMS en général). Le journal donne alors l’**adresse de l’émetteur** et l’**heure à la seconde**. Il ne dit pas si c’est une personne qui a cliqué ou une règle automatique du TMS.
+
+  Piège : les heures du journal sont en **UTC**. Une rallumée vue à 22 h 45 en hiver est vers 21 h 45 UTC.
+copier_tout: false
+etapes:
+  - titre: Recueillir les faits
+    machine: man
+    consigne: 'Salle, film, heure approximative **locale**, ce que le client a vu (lumières à quel niveau, depuis combien de temps avant la fin). Demander si quelqu’un était dans la cabine et connecté au TMS. Récupérer le package de diagnostic du projecteur (fichier .zip « diagnostic-… ») et le décompresser sur ton poste.'
+  - ref: contenu-du-package-barco
+    titre: Ce qui est lisible dans le package
+    attendu: 'ICMPSyslog.txt et notifications/ lisibles ; les .gz.enc sont chiffrés (réservés à Barco)'
+  - ref: heure-et-fuseau-du-journal-barco
+    titre: Période couverte et fuseau
+    attendu: 'UTC dans l’en-tête ; l’heure cherchée est dans la période'
+  - ref: cues-autour-d-un-moment
+    titre: Les cues autour de l’heure
+    attendu: 'Le cue de lumière : [SHOW] (playlist) ou [USER:…] (envoyé après coup)'
+  - ref: qui-a-envoye-un-cue
+    titre: Qui l’a envoyé
+    attendu: 'Une connexion, un triggerCue, une déconnexion en moins d’une seconde, avec l’adresse IP de l’émetteur'
+  - ref: debut-et-fin-de-seance-barco
+    titre: Où tombe le cue par rapport au générique et à la fin
+    attendu: 'Position du cue entre le cue « CREDIT » et la fin de séance'
+  - ref: cues-manuels-sur-la-periode
+    titre: Le même ordre est-il déjà arrivé ?
+    attendu: 'Même cue, même émetteur, un autre soir : à citer'
+  - ref: journal-projecteur-autour-d-une-heure
+    titre: Le projecteur a-t-il enregistré quelque chose ?
+    attendu: 'Rien d’anormal avant l’extinction habituelle de fin de séance'
+  - titre: Rédiger la réponse
+    machine: man
+    consigne: 'Indiquer les heures locales (conversion faite), le cue prévu par la playlist, le cue reçu en plus, l’adresse de l’émetteur, qu’il a été accepté et transmis au contrôleur de lumière sans erreur. Écrire que le journal ne permet pas de dire si une personne ou une règle automatique l’a envoyé, et demander au client de vérifier qui était connecté au TMS et si une règle ou une macro du TMS peut envoyer ce cue pendant la séance. Préciser que les journaux internes du projecteur sont chiffrés et n’ont pas été lus, et qu’aucune modification n’a été faite.'
+attention: 'Lecture seule sur les fichiers du package. Ne pas tenter de déchiffrer les fichiers .enc : les remettre au support Barco si l’analyse l’exige.'
+maj: 2026-11-06

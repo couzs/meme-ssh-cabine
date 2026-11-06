@@ -64,3 +64,66 @@ commandes:
     attention: 'Coupe le TMS environ une minute : jamais pendant une séance sans accord du client.'
     voir: [etat-des-services-tms]
     mots: [redémarrer, tout, restart, tms ko]
+
+  - id: conteneurs-de-l-orc
+    titre: Conteneurs de l’ORC (LXC)
+    machine: orc
+    niveau: info
+    commande: |-
+      lxc-ls -f
+    but: 'Sur certains sites, le TMS et le YMS ne sont pas des machines à part : ce sont des conteneurs LXC qui tournent sur l’ORC. Cette commande les liste avec leur état.'
+    detail: |
+      lxc-ls → liste les conteneurs LXC de l’hôte
+      -f → affichage « fancy » : tableau avec état, IP et démarrage automatique
+    exemple: |
+      NAME            STATE    IPV4          IPV6  AUTOSTART
+      -------------------------------------------------------
+      tms-ymagis      RUNNING  192.0.2.6     -     YES
+      tms-ymagis-old  STOPPED  -             -     NO
+      yms             RUNNING  192.0.2.5     -     YES
+    lecture: |
+      - **RUNNING** : le conteneur tourne. **STOPPED** : arrêté (un `-old` arrêté est en général une ancienne copie conservée).
+      - **AUTOSTART = YES** : le conteneur redémarre tout seul quand l’ORC redémarre. Aucune action à faire dessus après un reboot.
+      - Le TMS et l’ORC qui le porte **partagent le même disque** : si l’ORC est plein, le TMS l’est aussi (voir « MongoDB arrêté : disque saturé temporairement »).
+      - Les fichiers du TMS vus depuis l’ORC sont sous `/var/lib/lxc/<nom du conteneur>/rootfs/`.
+    voir: [redemarrer-l-orc, mongo-disque-sature]
+    mots: [lxc, conteneur, tms, orc, disque partagé]
+    maj: 2026-11-06
+
+  - id: redemarrer-l-orc
+    titre: Redémarrer l’ORC
+    machine: orc
+    niveau: danger
+    commande: |-
+      reboot
+    but: 'Redémarrage propre de l’ORC (et donc des conteneurs TMS, YMS… qu’il porte). L’ORC est un Linux sans systemd : la commande `systemctl reboot` n’existe pas, il faut utiliser `reboot`.'
+    detail: |
+      reboot → arrête les services puis redémarre la machine, comme un redémarrage normal
+    lecture: |
+      - La session SSH se coupe : c’est normal. Compter 2 à 5 minutes avant de se reconnecter.
+      - Variantes équivalentes si `reboot` est absent : `shutdown -r now` ou `init 6`.
+      - `systemctl: command not found` = l’ORC n’utilise pas systemd (init classique). Pour ses services : `service <nom> status`, ou `/etc/init.d/<nom> status`.
+    attendu: 'Reconnexion possible après quelques minutes ; contrôle avec « Après un reboot de l’ORC »'
+    si_ko: 'La machine ne revient pas au bout de 10 minutes : prévenir le client (alimentation, câble, écran en cabine) puis le N3. Ne jamais forcer avec `reboot -f` ou `echo b > /proc/sysrq-trigger`.'
+    attention: 'Coupe tout ce que porte l’ORC : le TMS (page web, ingest, supervision), le YMS et les NAT vers les salles. Hors séance, avec l’accord du client ou du N3 (c’est un changement), et après avoir vérifié avec « Qui est connecté ? » qu’un collègue n’est pas dessus. Ne jamais utiliser `reboot -f` : coupure brutale, risque d’abîmer MongoDB.'
+    voir: [apres-reboot-orc, conteneurs-de-l-orc, qui-est-connecte, espace-disque]
+    mots: [reboot, redémarrer, orc, systemctl introuvable, sans systemd, shutdown]
+    maj: 2026-11-06
+
+  - id: apres-reboot-orc
+    titre: Après un reboot de l’ORC
+    machine: orc
+    niveau: info
+    commande: |-
+      uptime ; lxc-ls -f ; df -h /
+    but: 'Contrôle en une commande que l’ORC est revenu, que les conteneurs ont redémarré et que le disque n’est pas plein.'
+    detail: |
+      uptime → depuis quand la machine tourne (quelques minutes = le reboot a bien eu lieu)
+      lxc-ls -f → état des conteneurs
+      df -h / → remplissage du disque
+    attendu: 'uptime de quelques minutes, tms-ymagis / yms / rxtx en RUNNING, Use% sous 90 %'
+    si_ko: 'Un conteneur en STOPPED alors qu’il est en AUTOSTART : attendre une minute puis relire. Toujours arrêté : prévenir le N3. Ne pas le démarrer à la main sans accord.'
+    lecture: 'Ensuite, contrôler côté TMS que MongoDB et Tomcat répondent (« État des trois services TMS d’un coup »), puis que l’interface web s’affiche chez le client.'
+    voir: [conteneurs-de-l-orc, etat-des-services-tms]
+    mots: [reboot, contrôle, après redémarrage, uptime]
+    maj: 2026-11-06

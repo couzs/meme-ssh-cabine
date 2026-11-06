@@ -48,3 +48,11 @@ intro: Les mots du métier en une ligne, pour lire les procédures sans se perdr
 | POS | Système de billetterie du cinéma. Des plugins du TMS lui demandent films et séances. |
 | Tomcat | Serveur d’applications Java du TMS : interface web, plugins et Smarty (sur certains sites) tournent dedans. Le redémarrer coupe tout le TMS. |
 | POST | Auto-test au démarrage d’un PC ou d’un serveur, avant le système. BIOS affiché = POST passé. |
+| SPL | ShowPlaylist : la playlist d’une séance (fichier XML) avec ses cues. Sur un Doremi : `/data/playlists/`. |
+| LXC | Conteneur Linux : un « mini serveur » qui tourne sur un autre (le TMS sur l’ORC, sur certains sites). Même disque que l’hôte. |
+| WiredTiger | Moteur de stockage de MongoDB. « WiredTiger error (28) » = plus de place sur le disque. |
+| Quick DCP | Fonction du TMS qui fabrique un DCP à partir d’une vidéo (service dcp-creator : DCP-o-matic + ffmpeg). Peut remplir le disque pendant qu’il travaille. |
+| Cue `[SHOW]` / `[USER:…]` | Dans un journal Barco : `[SHOW]` = cue de la playlist ; `[USER:…]` = cue envoyé après coup, à la main ou par un logiciel connecté. |
+| ICMP (Barco) | Processeur de médias du projecteur (Integrated Cinema Media Processor), souvent appelé IMS : lit les films et trace tout dans `ICMPSyslog.txt`. |
+| UTC | Heure universelle des journaux Barco. Heure locale = UTC + 1 (hiver) ou + 2 (été). |
+| Masque /24, /25 | `255.255.255.0` (256 adresses) ou `255.255.255.128` (128). Un masque faux sur un PC lui fait voir des équipements « hors réseau ». |

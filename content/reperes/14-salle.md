@@ -39,3 +39,19 @@ intro: 'Doremi, JNIOR, Dolby et LMS Debian : chemins, ports, lecture des journau
 - Volume des DCP monté sur `/opt/lms-ymagis`, DCP dans `/opt/lms-ymagis/lms` (racine FTP de lmsuser).
 - Journaux FTP : `/var/log/proftpd/proftpd.log` et `xferlog`. Pas de purge automatique.
 - « permission denied » côté distributeur peut cacher « No space left on device » côté serveur.
+
+### Doremi : lire une fin de séance qui ne fait pas ce qu’il faut
+
+- **Playlist (SPL)** : fichier XML dans `/data/playlists/`, regénéré par le TMS à chaque programmation. Il contient les **cues** (`<Action>` : nom d’une macro, avec un `Offset` en images). Le serveur ne planifie rien lui-même : « Scheduler is disabled » dans `schedulerd.log` est normal quand un TMS externe programme.
+- **Macros** : `/doremi/etc/macros.xml`. Chaque macro est une liste d’actions (`Black`, `Pause`, `Lamp`, `Volume`…). `Fin_Seance` d’un site testé = `Black` puis `Pause`. Une action **Pause arrête la lecture** : les cues placés plus loin dans la playlist ne sont jamais joués.
+- **Journal des ordres** : `/doremi/log/drmplaylistd.log` : `Executing macro "…"`, `Received PauseSPL`, `Received EjectSPL`, `LoadSPL(…)`, `ExecuteMacroCue("…")`. Chaque ordre reçu porte l’IP de l’émetteur entre crochets.
+- **`ExecutionFailed` / `UnknownMacro`** : le serveur a reçu l’ordre d’exécuter une macro qui n’existe pas. Si ça arrive toutes les nuits à la même heure (exemple : une macro « NightMode »), c’est un défaut de configuration permanent, sans lien avec une panne ponctuelle.
+- **Journal du JNIOR** : heures en GMT, l’horloge peut être décalée si la synchronisation NTP échoue. Pas de commande `time` sur le JNIOR : `cat` et `ls -l` fonctionnent.
+- **Ce que ces journaux ne disent pas** : l’état réel de la lampe, du gradateur ou du projecteur. Ils prouvent une **commande reçue et exécutée**, jamais un **effet en salle**.
+
+### Doremi : système réduit, commandes qui n’existent pas
+
+- `sed -E` / `sed -r` : absents. Utiliser `grep`, `cut`, `sort`, `uniq`, `awk`.
+- `find -newermt` : absent. Utiliser `find … -mtime -N` (jours).
+- `strings -a` et `grep -a` : disponibles ; `grep -a` est nécessaire quand un journal est détecté comme binaire.
+- Le format de date de `drmplaylistd.log` est `Nov  4 00:21:48 2026` (jour sur deux caractères, avec espace).

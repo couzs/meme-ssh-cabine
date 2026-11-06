@@ -13,7 +13,8 @@ export const FORMATS = {
   port:  { rx: /^([1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$/, aide: 'Port TCP entre 1 et 65535' },
   code:  { rx: /^[a-z]{2}[a-z0-9]{2,12}$/, aide: 'Code site en minuscules, ex. frxxxx' },
   host:  { rx: /^[A-Za-z0-9]([A-Za-z0-9.-]{0,60}[A-Za-z0-9])?$/, aide: 'Nom de machine ou IP, ex. serveur.exemple.fr' },
-  svc:   { rx: /^[a-z][a-z0-9@._-]{1,40}$/, aide: 'Nom de service systemd, ex. tomcat8' }
+  svc:   { rx: /^[a-z][a-z0-9@._-]{1,40}$/, aide: 'Nom de service systemd, ex. tomcat8' },
+  moment: { rx: /^20\d{2}-\d{2}-\d{2}( \d{2}(:\d{0,2})?)?$/, aide: 'Date, puis heure facultative : 2026-11-03 ou 2026-11-03 21 ou 2026-11-03 21:4' }
 };
 export function etatValeur(format, v) {
   if (!v) return 'empty';

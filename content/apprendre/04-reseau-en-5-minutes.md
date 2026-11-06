@@ -11,6 +11,17 @@ intro: 'IP, masque, passerelle, MAC, port, NAT : les notions qu’il faut pour l
 - Le **masque** `/24` (255.255.255.0) dit que les trois premiers nombres désignent le réseau : `192.0.2.41` et `192.0.2.13` sont dans le même réseau, ils se parlent directement.
 - Pour joindre un autre réseau, un équipement passe par sa **passerelle** (gateway). En cabine, c’est l’ORC.
 
+### Un masque faux, ça casse la moitié des pings
+
+Le masque coupe ou non le réseau en deux :
+
+| Masque | Écriture | Plage de `192.0.2.x` |
+|---|---|---|
+| `255.255.255.0` | /24 | une seule plage : `.0` à `.255` |
+| `255.255.255.128` | /25 | deux plages : `.0` à `.127` et `.128` à `.255` |
+
+Un PC en `192.0.2.241` avec un masque `/25` se croit dans `.128–.255` : il envoie vers la passerelle tout ce qui est en `.0–.127` (ex. `.13`, `.23`, `.33`), alors que ces équipements, en `/24`, le voient chez eux et lui répondent en direct. Certains pings échouent, d'autres passent par un chemin détourné. Premier réflexe devant des pings capricieux : comparer le **masque du PC** avec celui des équipements (procédure « Le PC joint certains équipements mais pas d'autres »).
+
 ## MAC : la plaque d’immatriculation
 
 - Chaque carte réseau a une **adresse MAC** fixe (ex. `00:04:a5:12:34:56`). Les trois premiers octets désignent le **fabricant**.

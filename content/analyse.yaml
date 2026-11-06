@@ -117,3 +117,33 @@
   gravite: info
   explication: 'La machine a été réinstallée ou son adresse a changé de propriétaire. Si c’est attendu, supprime l’ancienne entrée avec ssh-keygen -R ; sinon, ne continue pas.'
   voir: [debuter]
+- id: mongo-sans-place
+  titre: MongoDB arrêté faute de place
+  motif: 'WiredTiger error \(28\)|Fatal Assertion 28558|WiredTiger.*No space left'
+  gravite: crit
+  explication: 'MongoDB n’a plus pu écrire sur le disque et s’est arrêté lui-même. Sans lui, la page web du TMS ne charge plus. Le disque peut paraître normal ensuite : il s’est rempli temporairement (traitement de vidéo, fichiers temporaires effacés au reboot).'
+  voir: [mongo-disque-sature, mongodb-arrete-pour-manque-de-place]
+- id: systemctl-absent
+  titre: systemctl introuvable (ORC sans systemd)
+  motif: 'systemctl: command not found'
+  gravite: info
+  explication: 'Cette machine n’utilise pas systemd : c’est normal sur l’ORC. Pour redémarrer la machine : reboot. Pour un service : service <nom> status ou /etc/init.d/<nom> status.'
+  voir: [redemarrer-l-orc, archi]
+- id: macro-inconnue
+  titre: Macro inconnue du serveur de salle
+  motif: 'UnknownMacro'
+  gravite: info
+  explication: 'Le serveur a reçu l’ordre d’exécuter une macro qui n’existe pas dans macros.xml. Si cela se répète tous les soirs à la même heure, c’est un défaut de configuration permanent, rarement lié à une panne ponctuelle.'
+  voir: [macros-en-echec, definition-d-une-macro]
+- id: cue-envoye-a-distance
+  titre: Cue envoyé à distance (pas par la playlist)
+  motif: 'from \[USER:|triggerCue\('
+  gravite: info
+  explication: 'Ce cue vient d’un utilisateur ou d’un logiciel connecté au lecteur (en général le TMS), pas de la playlist. Le journal donne l’adresse de l’émetteur, pas la raison : clic d’un utilisateur et règle automatique laissent la même trace.'
+  voir: [qui-a-envoye-un-cue, cues-autour-d-un-moment]
+- id: heure-utc-barco
+  titre: Journal en UTC
+  motif: 'extracted on .* UTC'
+  gravite: info
+  explication: 'Les heures de ce journal sont en temps universel. Heure locale du client = UTC + 1 (hiver) ou + 2 (été) : convertir avant de comparer avec ce qu’il décrit.'
+  voir: [heure-et-fuseau-du-journal-barco]

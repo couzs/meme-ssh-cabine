@@ -1,0 +1,57 @@
+id: lampe-fin-de-seance
+theme: Automation
+titre: 'Lampe qui ne s’éteint pas en fin de journée (journaux Doremi)'
+quand: 'Le client dit que la lampe (xénon) reste allumée la nuit malgré la cue « lamp off » de son TMS, et demande de vérifier les journaux.'
+symptomes: [lampe, xénon, lamp off, lampoff, fin de séance, extinction, macro, playlist, doremi, dcp2000]
+comprendre: |
+  La chaîne : le **TMS** (souvent un système tiers, inaccessible) génère une **playlist** (SPL) avec des **cues** → le **serveur de salle Doremi** charge la playlist et exécute les **macros** → les macros commandent le projecteur ou le JNIOR. De ton poste, tu ne vois que le **serveur de salle** : ce qu’il reçoit et ce qu’il exécute. **L’état réel de la lampe ne se lit pas dans ces journaux.**
+
+  Méthode : savoir *depuis quand* la macro d’extinction ne s’exécute plus (journaux), puis *pourquoi* (ordre des cues dans la playlist, macros reçues, ordres du TMS). Chaque phrase de ta réponse doit dire si elle décrit une **commande exécutée** (prouvé) ou un **effet** (non vérifié).
+copier_tout: false
+etapes:
+  - titre: Recueillir les faits
+    machine: man
+    consigne: 'Salle concernée, dates précises des nuits où la lampe est restée allumée ET de celles où elle s’est bien éteinte, heure de fin de la dernière séance, nom du TMS et de son fournisseur. Savoir si le TMS est accessible : un TMS de concurrent ne l’est pas, ne pas chercher à y entrer.'
+  - ref: serveur-de-salle-joignable
+    titre: Le serveur de salle répond ?
+  - ref: journaux-des-demons-doremi
+    titre: Où sont les journaux
+    attendu: 'drmplaylistd.log à jour (c’est lui qui trace les macros)'
+  - ref: macros-executees
+    titre: Quelles macros s’exécutent
+    attendu: 'LampOff présente. Absente ou rare comparée à Fin_Seance = piste'
+  - ref: une-macro-par-nuit
+    titre: Nuit par nuit, depuis quand LampOff a disparu
+    attendu: 'LampOff présente les premières nuits, puis absente à partir d’une date précise'
+  - ref: commandes-recues-du-tms
+    titre: Ordres reçus du TMS à la fin de la séance
+    attendu: 'Après la macro de fin, PauseSPL puis EjectSPL quelques secondes plus tard = la playlist est arrêtée puis retirée'
+  - ref: macros-en-echec
+    titre: Macros en échec
+    attendu: 'Des échecs répétés toutes les nuits (UnknownMacro) sont sans rapport, sauf s’ils portent sur la macro cherchée'
+  - ref: definition-d-une-macro
+    titre: Définition de la macro de fin de séance (MACRO = Fin_Seance)
+    attendu: 'Une action Pause = la lecture s’arrête. Puis relever LampOff (MACRO = LampOff)'
+  - ref: playlists-recentes
+    titre: Les playlists du moment
+    attendu: 'La playlist de la veille au soir en tête'
+  - ref: nombre-de-lampoff-par-playlist
+    titre: LampOff présent dans quelles playlists
+    attendu: 'Un seul LampOff par playlist ; 0 sur les récentes si le cue a disparu côté TMS'
+  - ref: cues-de-fin-de-seance-dans-une-playlist
+    titre: Ordre des cues en fin de playlist
+    attendu: 'LampOff à la suite de la macro de fin, avant toute pause. S’il est dans un second bloc de fin, après une pause, il n’est jamais joué'
+  - ref: se-connecter-au-jnior
+    titre: JNIOR (si la lampe est commandée par un relais)
+    attendu: 'Invite du JNIOR. Une seule commande à la fois.'
+  - ref: commandes-recues-du-serveur
+    titre: Le JNIOR reçoit-il des ordres la nuit ?
+    attendu: 'Paquets 10 (ordres de relais) à l’heure de fin de séance si le serveur commande bien le relais'
+  - ref: journal-systeme
+    titre: Journal du JNIOR
+    lecture: 'Les heures de ce journal sont en GMT et l’horloge du JNIOR peut ne pas être à l’heure (synchronisation NTP en échec) : ne pas les comparer telles quelles avec le serveur de salle.'
+  - titre: Rédiger la réponse
+    machine: man
+    consigne: 'Annoncer d’abord le périmètre (journaux du serveur de salle et du JNIOR, TMS non accessible). Écrire « commande exécutée » et jamais « lampe éteinte ». Donner les dates, l’exemple d’une nuit avec les heures et les macros. Qualifier la cause de « déduction » tant que la pause n’a pas été observée. Demander les dates des nuits où ça a marché ou non et proposer de faire revoir au fournisseur du TMS l’ordre des cues de fin de séance (LampOff avant la pause ou dans le même bloc). En attendant, extinction manuelle ou programmée depuis le TMS. Préciser qu’aucune modification n’a été faite.'
+attention: 'Lecture seule. Ne pas modifier macros.xml ni les playlists, ne pas rejouer une macro : la lampe changerait réellement d’état en salle.'
+maj: 2026-11-06

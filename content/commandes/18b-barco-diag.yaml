@@ -1,0 +1,148 @@
+id: barco-diag
+titre: Package de diagnostic Barco
+groupe: Salle
+intro: 'Le projecteur Barco (SP2K, Alchemy ICMP) produit un package de diagnostic : un fichier .zip demandé par le support Barco, ou téléchargé depuis l’interface. À décompresser sur ton poste (Linux, WSL ou Git Bash) : les commandes de cette page se lancent dans le dossier obtenu, repéré par la variable « Dossier du package de diagnostic Barco ». Seule une partie est lisible : voir « Ce qui est lisible dans le package ».'
+
+commandes:
+  - id: contenu-du-package-barco
+    titre: Ce qui est lisible dans le package
+    machine: lin
+    niveau: info
+    commande: |-
+      cd {DIAG_DIR} && ls && file log/*/* | head -3 && ls -l mediaplayer notifications | head -30
+    but: 'Repère ce qui se lit directement et ce qui est chiffré avant de chercher quoi que ce soit.'
+    detail: |
+      cd {DIAG_DIR} → se place dans le dossier décompressé
+      ls → les dossiers : log, config, history, system, mediaplayer, notifications, statistics, capture, firmware…
+      file log/*/* → type des fichiers du dossier log
+      ls -l mediaplayer notifications → fichiers du lecteur et des notifications du projecteur
+    exemple: |
+      log/20261101/0415c0ca-….gz.enc: openssl enc'd data with salted password
+      mediaplayer/ICMPSyslog.txt
+      notifications/notifications.0
+    lecture: |
+      - **`*.gz.enc`** (dossiers log, system, history, config…) : **chiffrés**. La clé (`encryption.key`, 512 octets) est protégée pour le constructeur : seul Barco les ouvre. Ne pas chercher à les déchiffrer : les joindre au dossier de support Barco.
+      - **Lisibles en clair** : `mediaplayer/ICMPSyslog.txt` (journal du lecteur : playlists, cues, connexions distantes, ordres envoyés aux équipements), `mediaplayer/ICMPSettings.xml`, `mediaplayer/ICMPVersionInfo.xml`, `mediaplayer/ICMPFtplog.txt`, `notifications/` (événements du projecteur : macros, dowser, lampe, alarmes), `device-status.json` (IP, alarmes actives).
+      - `device-identification.json` donne le modèle et la série.
+    voir: [heure-et-fuseau-du-journal-barco, journal-projecteur-autour-d-une-heure]
+    mots: [diagnostic, package, zip, barco, chiffré, enc, sp2k, icmp]
+    maj: 2026-11-06
+
+  - id: heure-et-fuseau-du-journal-barco
+    titre: Heure et période du journal du lecteur
+    machine: lin
+    niveau: info
+    commande: |-
+      head -1 {DIAG_DIR}/mediaplayer/ICMPSyslog.txt ; sed -n 2p {DIAG_DIR}/mediaplayer/ICMPSyslog.txt | cut -c1-23 ; tail -1 {DIAG_DIR}/mediaplayer/ICMPSyslog.txt | cut -c1-23
+    but: 'Date d’extraction, premier et dernier horodatage du journal. À faire avant toute recherche : les heures sont en UTC.'
+    exemple: |
+      ++++ log from host sms0001 extracted on Wed Nov  4 13:22:06 UTC 2026 ++++
+      2026-10-03 16:57:44
+      2026-11-04 13:22:06
+    lecture: |
+      - **UTC** dans l’en-tête = tous les horodatages sont en temps universel. L’heure locale du client : **UTC + 1 en hiver, + 2 en été**. Une rallumée « à 22 h 45 » est donc à chercher vers 21:45 UTC en hiver.
+      - Le journal couvre environ un mois : un incident plus ancien n’y est plus.
+      - Le journal du lecteur change de fichier tout seul (rotation) : si l’heure cherchée n’est pas dedans, redemander un package plus récent.
+    attention: 'Ne jamais citer une heure au client sans l’avoir convertie en heure locale.'
+    voir: [cues-autour-d-un-moment]
+    mots: [utc, fuseau, heure, extraction, icmpsyslog]
+    maj: 2026-11-06
+
+  - id: cues-autour-d-un-moment
+    titre: Cues autour d’un moment
+    machine: lin
+    niveau: info
+    commande: |-
+      grep -a "^{MOMENT}" {DIAG_DIR}/mediaplayer/ICMPSyslog.txt | grep -aE "CUE|SHOW-END|SHOW-START|Login attempt|triggerCue|Executing action" | cut -d' ' -f1,2,5- | cut -c1-230
+    but: 'Tout ce que le lecteur a déclenché pendant la période indiquée (par exemple une dizaine de minutes ou une heure) : cues de la playlist, cues manuels, actions envoyées aux équipements.'
+    detail: |
+      grep -a "^{MOMENT}" → les lignes qui commencent par cette date/heure (UTC)
+      grep -aE "CUE|…" → ne garde que cues, fin de séance, connexions distantes et actions d’automation
+      cut -d' ' -f1,2,5- → garde la date, l’heure puis le message (sans le nom de la machine)
+      cut -c1-230 → coupe chaque ligne pour garder la lecture simple
+    exemple: |
+      2026-11-03 21:44:32,797 SMS: Report- |CUE| ["USER_CUE" "Eclairage_Salle_50%"] from [SHOW]: 1 action(s)
+      2026-11-03 21:46:57,756 SMS: Report- |CUE| ["USER_CUE" "Eclairage_Salle_100%"] from [USER:admin]: 1 action(s)
+      2026-11-03 21:46:57,758 SMS: Automation- Executing action ["PAA20+" "Send Text"( … )]
+    lecture: |
+      - **`from [SHOW]`** = le cue vient de la **playlist** (programmé dans le film).
+      - **`from [USER:admin]`** = le cue a été **envoyé à la main ou à distance** par un utilisateur ou un système connecté (TMS, interface web). Ce n’est pas la playlist.
+      - `Executing action […] successful` = l’ordre a bien été transmis à l’équipement (lumière, son, projecteur). Ça prouve l’envoi, pas l’effet réel en salle.
+      - `device not supported - device ignored` sur « TMS MONITORING » est un bruit habituel : l’action de supervision vers le TMS n’a pas de destinataire.
+    voir: [qui-a-envoye-un-cue, heure-et-fuseau-du-journal-barco]
+    mots: [cue, lumière, playlist, user_cue, show, rallumée, icmpsyslog]
+    maj: 2026-11-06
+
+  - id: qui-a-envoye-un-cue
+    titre: Qui a envoyé un cue ?
+    machine: lin
+    niveau: info
+    commande: |-
+      grep -aE "Login attempt from|login\(|triggerCue|logout\(" {DIAG_DIR}/mediaplayer/ICMPSyslog.txt | grep -a "{MOMENT}" | cut -c1-200
+    but: 'Les connexions distantes au lecteur et les commandes qu’elles ont envoyées, avec l’adresse IP de l’émetteur.'
+    exemple: |
+      2026-11-03 21:46:56,859 … SMS- Login attempt from 192.0.2.60:43052 (User admin)
+      2026-11-03 21:46:57,736 … admin@192.0.2.60:43052>login("192.0.2.60:43052", "admin", "TMS Ymagis") accepted
+      2026-11-03 21:46:57,760 … admin@192.0.2.60:43052>triggerCue("Eclairage_Salle_100%") accepted
+      2026-11-03 21:46:57,808 … admin@192.0.2.60:43052>logout("192.0.2.60:43052") accepted
+    lecture: |
+      - **L’adresse IP** (avant les deux-points) dit quel équipement s’est connecté. Le texte entre guillemets du `login` est le nom que ce client donne de lui-même : indication utile, pas une preuve d’identité.
+      - Connexion, une commande, déconnexion en **moins d’une seconde** : typique d’un logiciel qui envoie un ordre isolé. Le clic d’une personne dans le TMS et une règle automatique du TMS laissent **la même trace** : le journal ne les distingue pas.
+      - **Ce que le journal ne dit pas** : si quelqu’un a appuyé sur un bouton dans le TMS, ou si une règle automatique du TMS a envoyé l’ordre. Il faut le demander au client (et au fournisseur du TMS si le TMS est tiers).
+    voir: [cues-autour-d-un-moment, cues-manuels-sur-la-periode]
+    mots: [triggercue, login, admin, tms, adresse ip, qui, commande distante]
+    maj: 2026-11-06
+
+  - id: cues-manuels-sur-la-periode
+    titre: Cues manuels sur toute la période
+    machine: lin
+    niveau: info
+    commande: |-
+      grep -a "triggerCue" {DIAG_DIR}/mediaplayer/ICMPSyslog.txt | cut -d' ' -f1,2,5- | cut -c1-200 | tail -60
+    but: 'Tous les cues envoyés à distance depuis le début du journal, pour voir si le même ordre revient (même heure, même film, même émetteur).'
+    lecture: |
+      - Des cues manuels réguliers (lumières à 100 %, extinction du laser, volume) sont l’usage normal d’un projectionniste qui pilote depuis le TMS.
+      - Ce qui est intéressant : le **même cue qui revient pendant un générique** ou à un moment précis de plusieurs séances. Compare chaque occurrence avec les heures de séance (`SHOW-END`).
+    voir: [qui-a-envoye-un-cue, debut-et-fin-de-seance-barco]
+    mots: [triggercue, manuel, historique, récurrence]
+    maj: 2026-11-06
+
+  - id: debut-et-fin-de-seance-barco
+    titre: Séances jouées (début, générique, fin)
+    machine: lin
+    niveau: info
+    commande: |-
+      grep -aE "SHOW-END|TMS : CREDIT|SHOW-START" {DIAG_DIR}/mediaplayer/ICMPSyslog.txt | cut -d' ' -f1,2,5- | cut -c1-200 | tail -40
+    but: 'Les séances jouées par le lecteur avec leur heure de fin et le cue « générique » de la playlist.'
+    exemple: |
+      2026-11-03 21:44:31,791 SMS: Report- |CUE| ["USER_CUE" "TMS : CREDIT"] from [SHOW]: 1 action(s)
+      2026-11-03 21:49:43,500 SMS: Report- |SHOW-END| [titre du film]
+    lecture: |
+      - Le cue **« CREDIT »** (nom choisi par le programmateur de la playlist) marque le début du générique pour le lecteur. Entre ce cue et `SHOW-END`, on est en générique.
+      - Utile pour dire si un cue manuel est tombé avant le générique, pendant, ou après la fin du film : l’impression du client (« 2 à 3 minutes avant le générique ») peut différer de la réalité du journal.
+    voir: [cues-manuels-sur-la-periode, cues-autour-d-un-moment]
+    mots: [show-end, générique, credit, fin de séance, séance]
+    maj: 2026-11-06
+
+  - id: journal-projecteur-autour-d-une-heure
+    titre: Événements du projecteur autour d’une heure
+    machine: lin
+    niveau: info
+    commande: |-
+      M=$(echo "{MOMENT}" | tr ' ' T) ; grep -ah "\"timestamp\": \"$M" {DIAG_DIR}/notifications/notifications.* | sort | cut -c1-230
+    but: 'Ce que le projecteur lui-même a enregistré (macros exécutées, dowser, extinction du laser/de la lampe, alarmes), à la même heure.'
+    detail: |
+      M=$(echo "…" | tr ' ' T) → remplace l’espace par un T : ces fichiers écrivent 2026-11-03T21:4 et non 2026-11-03 21:4
+      grep -ah → cherche dans tous les fichiers notifications.N (-h : sans le nom de fichier)
+      "timestamp": "$M → les événements dont l’horodatage commence ainsi
+      sort → remet les événements dans l’ordre
+    exemple: |
+      {"timestamp": "2026-11-03T21:49:37.297092Z", "code": "S00030", "severity": "INFO", "message": "received power off: on -> deconditioning", …}
+      {"timestamp": "2026-11-03T21:49:38.308749Z", "code": "O0000b", "severity": "INFO", "message": "Closing dowser", …}
+    lecture: |
+      - Une plage sans événement du projecteur autour de l’incident est une information : le projecteur n’a rien enregistré d’anormal. Un changement d’éclairage de salle n’y figure pas : la lumière de salle est pilotée par un autre équipement (contrôleur de lumière), non par le projecteur.
+      - Les codes (`S00030`, `O0000b`…) sont décrits dans `notifications.json` du même dossier.
+      - Heures en UTC, comme le journal du lecteur.
+    voir: [heure-et-fuseau-du-journal-barco, contenu-du-package-barco]
+    mots: [notifications, projecteur, dowser, laser, power off, alarmes]
+    maj: 2026-11-06

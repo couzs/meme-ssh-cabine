@@ -1,0 +1,88 @@
+id: mongo-disque-sature
+theme: Système
+titre: 'MongoDB arrêté : disque saturé temporairement'
+quand: 'La page web du TMS ne charge plus, le client redémarre la box et tout repart. Le disque affiche un taux normal le lendemain, mais le journal de MongoDB parle de « No space left on device ».'
+symptomes: [box crash, tms inaccessible, redémarrage résout, mongodb arrêté, no space left, fatal assertion, wiredtiger, quick dcp, voyant rouge, dcp creator]
+comprendre: |
+  Sur beaucoup de sites, le TMS est un **conteneur sur l’ORC** : les deux partagent le même disque. Si quelque chose le remplit pendant quelques heures puis disparaît (traitement de vidéo, fichiers temporaires effacés au redémarrage), MongoDB ne peut plus écrire et **s’arrête tout seul**. Sans base, la page web du TMS ne s’affiche plus. Le client redémarre, l’espace revient, et plus personne ne voit le disque plein : d’où le piège « le disque est à 20 %, ce n’est pas ça ».
+
+  Ce qu’on peut **prouver** : l’heure de l’arrêt de MongoDB (journal), l’absence de cause matérielle ou mémoire, la chronologie des jobs de génération DCP. Ce qu’on **ne peut pas prouver après coup** : l’espace libre au moment de la panne (sauf graphique de supervision) et le fichier qui a rempli le disque, déjà supprimé. L’écrire dans le ticket tel quel, avec les mots « très probable » et « non démontré ».
+copier_tout: false
+etapes:
+  - ref: qui-est-connecte
+    titre: Un collègue est-il déjà dessus ?
+    attendu: 'Ta seule session'
+  - ref: espace-disque
+    titre: État du disque maintenant
+    attendu: 'Un taux normal ne disculpe pas le disque : la saturation était temporaire'
+  - ref: etat-des-services-tms
+    titre: Services du TMS
+    attendu: 'mongodb inactif = la base est tombée et le TMS web reste mort tant qu’on ne la relance pas'
+  - ref: mongodb-arrete-pour-manque-de-place
+    titre: Quand et pourquoi MongoDB s’est arrêté
+    attendu: 'Deux heures d’arrêt (une par panne) avec « No space left on device »'
+  - ref: journal-du-noyau
+    titre: Écarter le matériel
+    attendu: 'Aucune erreur disque (I/O error, ext4), aucun OOM : la cause n’est pas matérielle'
+  - ref: ram
+    titre: Écarter la mémoire
+    attendu: 'Mémoire disponible largement suffisante'
+  - ref: historique-des-reboots
+    titre: Reboots de la machine
+    attendu: 'Des « reboot » sans « shutdown » avant = aucun arrêt propre enregistré (coupure brutale probable)'
+    lecture: 'Le fichier d’historique peut ne commencer qu’au premier reboot récent : preuve limitée.'
+  - ref: conteneurs-de-l-orc
+    titre: Le TMS est-il un conteneur de l’ORC ?
+    attendu: 'tms-… en RUNNING : même disque que l’hôte (lancer les commandes suivantes sur l’ORC)'
+  - ref: gros-fichiers-modifies-recemment
+    titre: Un fichier gros écrivain est-il encore là ?
+    attendu: 'Une vidéo source et des journaux. Pas de gros temporaires : déjà supprimés, non prouvable après coup'
+  - ref: videos-quick-dcp-deposees
+    titre: Quelqu’un a-t-il lancé un Quick DCP ?
+    attendu: 'Une vidéo QDCP_ORIGINAL_… dont la date précède la panne de quelques heures'
+  - ref: progression-des-jobs-quick-dcp
+    titre: Le job a-t-il progressé puis figé ?
+    attendu: 'Un job qui monte puis reste bloqué à ~30 % des heures avant la panne'
+  - ref: activite-du-service-par-heure
+    titre: Datation de la saturation sans supervision
+    attendu: 'Une heure à activité réduite, de part et d’autre de l’arrêt de MongoDB'
+  - ref: duree-et-format-d-une-video
+    titre: Estimer ce que la conversion peut produire
+    attendu: 'Durée, cadence et définition : le calcul donne un ordre de grandeur, pas une mesure'
+  - ref: configuration-du-service-dcp-creator
+    titre: Paramètres du service (lecture)
+    attendu: 'Un seuil d’espace minimum, un seul job à la fois'
+  - titre: 'Preuve : espace libre pendant la panne'
+    machine: man
+    consigne: 'Demander au N3 ou à la supervision le graphique d’espace libre du disque de l’ORC (Zabbix) sur la période des deux pannes. C’est la seule preuve directe, sans toucher à la box.'
+  - titre: 'Option : surveillance sur la box (accord du N3 requis)'
+    machine: orc
+    niveau: action
+    commande: |-
+      cat > /root/diskwatch.sh <<'EOS'
+      #!/bin/bash
+      LOG=/root/diskwatch.log
+      while true; do
+        a=$(df -BM --output=avail / | tail -1 | tr -dc 0-9)
+        echo "$(date '+%F %T') avail=${a}M" >> $LOG
+        P=$(pgrep -f "ffmpeg|dcpomatic|dcp-o-matic" | tr '\n' ' ')
+        if [ -n "$P" ]; then
+          echo "  procs: $P" >> $LOG
+          for p in $P; do
+            echo "  cmd[$p]: $(tr '\0' ' ' < /proc/$p/cmdline | cut -c1-300)" >> $LOG
+          done
+        fi
+        if [ "$a" -lt 40000 ]; then
+          find /var/lib/lxc -xdev -type f -mmin -3 -size +100M -printf '  big %s %p\n' 2>/dev/null >> $LOG
+        fi
+        sleep 30
+      done
+      EOS
+      chmod +x /root/diskwatch.sh ; nohup /root/diskwatch.sh >/dev/null 2>&1 &
+    attendu: 'Un fichier /root/diskwatch.log qui s’allonge d’une ligne toutes les 30 s'
+    lecture: 'Ne mesure que si un Quick DCP est relancé. 40000 = 40 Go : adapter au disque. Le script s’arrête au prochain reboot ou avec `pkill -f diskwatch.sh`. Outil proposé, jamais utilisé en production : le tester avec le N3.'
+  - titre: Message au client
+    machine: man
+    consigne: 'Dire ce qui est établi (heures d’arrêt de MongoDB, disque saturé, aucune cause matérielle), ce qui est très probable (le Quick DCP en cours) et ce qui ne l’est pas. Demander qui a lancé le Quick DCP, avec quelle vidéo, d’éviter de le relancer en attendant, et de prévenir avant de redémarrer si la panne revient.'
+attention: 'Ne rien supprimer sur le site (vidéos QDCP_…, DCP) sans accord écrit du client. Ne pas relancer Mongo ou le TMS avant d’avoir relevé les journaux : le redémarrage efface les traces.'
+maj: 2026-11-06

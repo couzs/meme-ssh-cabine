@@ -29,6 +29,24 @@ intro: Ce qu’on a appris à la dure.
 - Un service « actif » ou une interface « UP » ne prouve pas que le trafic passe : comparer les octets entrés et revenus, ou capturer le trafic.
 - BIOS ou menu de démarrage protégé par mot de passe : ne jamais chercher à le contourner (cavalier, reset). C’est au N3 ou au constructeur.
 
+### Avant de redémarrer
+
+- **Relever avant de redémarrer** : un reboot efface les fichiers temporaires et remet le disque à un taux normal. Les journaux (MongoDB, service concerné, Tomcat) et l’heure de la panne se copient *avant*, pas après.
+- Sur l’ORC, `systemctl` n'existe pas : `reboot`. Jamais `reboot -f`. Vérifier d'abord `who` : un collègue est peut-être connecté.
+- Un disque à 20 % le lendemain ne prouve pas qu'il n'a pas été plein la veille : lire l'heure des erreurs, pas le taux du moment.
+
+### Répondre au client à partir de journaux
+
+- **Séparer ce qui est prouvé de ce qui est déduit.** Prouvé : un ordre reçu, une macro exécutée, une heure. Déduit : « la pause a arrêté la lecture », « le Quick DCP a rempli le disque ». Écrire « très probable » ou « déduction », jamais un fait.
+- **Une commande exécutée n'est pas un effet.** Un journal montre « macro LampOff exécutée », pas « lampe éteinte ». Dire « aucune commande d'extinction n'a été exécutée », pas « la lampe ne s'éteint pas ».
+- **Dire ce qu'on n'a pas pu regarder** : TMS tiers inaccessible, journaux chiffrés, état réel d'un équipement. Ne pas essayer d'entrer dans le TMS d'un concurrent.
+- **Compter sans exagérer** : « une playlist comparée » et non « les playlists d'avant ». « Sur la période analysée » plutôt que « jamais ».
+- **Convertir les heures.** Journaux Barco en UTC, JNIOR en GMT, Doremi à l'heure du serveur : dire dans le message de quelle heure il s'agit.
+- **Ne pas attribuer une action à une personne.** Une adresse IP et un nom de client logiciel disent *quel équipement* a envoyé l'ordre, pas *qui* ni *pourquoi* (clic d'un utilisateur ou règle automatique laissent la même trace). Poser la question au client.
+- **Relire chaque phrase avant d'envoyer** : retrouver pour chacune la ligne de journal qui la prouve. Retirer ou reformuler ce qui n'en a pas.
+- Le client peut accéder au TMS par un **lien intermédiaire** (proxy d'accès) : ne pas déduire du lien comment le TMS identifie ses utilisateurs.
+- Une erreur `530 Login incorrect` est une erreur **FTP**, pas une connexion web ratée.
+
 ### Confidentialité
 
 - Le fichier ne contient aucune donnée de site : il peut être partagé tel quel. Tes sites restent dans le coffre chiffré de ton navigateur.

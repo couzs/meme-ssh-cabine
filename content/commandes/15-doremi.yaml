@@ -172,3 +172,177 @@ commandes:
     lecture: 'Peut mettre une vingtaine de secondes à répondre KO quand l’équipement est absent.'
     mots: [port, test, sans nc]
     maj: 2026-10-18
+
+  - id: journaux-des-demons-doremi
+    titre: Journaux des démons Doremi
+    machine: dor
+    niveau: info
+    commande: |-
+      ls -l --time-style=long-iso /doremi/log | head -30
+    but: 'Liste les journaux du serveur de salle. Chaque démon a le sien : lecture des playlists et macros (drmplaylistd), relais du JNIOR (drmjniord), entrées/sorties (drmgpiod), signaux (drmsignald), planificateur (schedulerd).'
+    detail: |
+      ls -l → liste détaillée
+      --time-style=long-iso → date au format 2026-11-03 21:12
+      head -30 → limite à 30 lignes
+    lecture: |
+      - Les actions d’automation (macros, cues, PauseSPL, EjectSPL) sont dans **drmplaylistd.log**.
+      - Les ordres envoyés au JNIOR (impulsions de relais) sont dans **drmjniord.log**.
+      - La date de dernière modification dit si le démon écrit toujours. Un journal figé depuis des jours = démon arrêté.
+      - **« Scheduler is disabled »** dans schedulerd.log est normal quand la programmation est faite par un TMS externe : le serveur ne planifie rien lui-même.
+    voir: [macros-executees, commandes-recues-du-tms]
+    mots: [journaux, démons, drmplaylistd, drmjniord, logs doremi]
+    maj: 2026-11-06
+
+  - id: macros-executees
+    titre: Macros exécutées (nombre par macro)
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -a "Executing macro" /doremi/log/drmplaylistd.log | cut -d'"' -f2 | sort | uniq -c | sort -rn | head -30
+    but: 'Combien de fois chaque macro a été exécutée, sur toute la durée du journal.'
+    detail: |
+      grep -a "Executing macro" → les lignes où le serveur exécute une macro (-a : fichier lu comme du texte)
+      cut -d'"' -f2 → garde le nom entre les guillemets
+      sort | uniq -c → compte chaque nom
+      sort -rn → du plus fréquent au plus rare
+    exemple: |
+       412 Lumiere_100
+       398 Fin_Seance
+       201 LampOff
+    lecture: |
+      - Une macro attendue (ex. LampOff) absente ou très peu nombreuse par rapport à Fin_Seance : elle n’est pas déclenchée à chaque fin de séance.
+    attention: 'Sur ce système réduit, `sed -E`, `sed -r` et `find -newermt` n’existent pas : rester sur grep, cut, sort, uniq.'
+    voir: [macros-en-echec, une-macro-par-nuit, definition-d-une-macro]
+    mots: [macro, lampoff, fin_seance, exécutées, cue]
+    maj: 2026-11-06
+
+  - id: macros-en-echec
+    titre: Macros en échec
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -a -B1 "ExecutionFailed" /doremi/log/drmplaylistd.log | tail -40 | cut -c1-200
+    but: 'Les ordres que le serveur n’a pas pu exécuter, avec la ligne qui les précède.'
+    lecture: |
+      - **UnknownMacro** : le serveur a reçu l’ordre d’exécuter une macro qui n’existe pas dans macros.xml (nom mal écrit, macro supprimée). L’ordre est ignoré, sans conséquence sur le reste.
+      - Un échec qui se répète **tous les soirs à la même heure** est un défaut de configuration permanent, pas la cause d’une panne ponctuelle : ne pas s’y arrêter, sauf si le nom correspond à ce qu’on cherche.
+    voir: [macros-executees, definition-d-une-macro]
+    mots: [macro, échec, executionfailed, unknownmacro, nightmode]
+    maj: 2026-11-06
+
+  - id: une-macro-par-nuit
+    titre: Macros exécutées en fin de soirée
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -aE " 0[0-2]:[0-9]{2}:[0-9]{2} 20[0-9]{2}\]: \[PLAYER\]:  Executing macro" /doremi/log/drmplaylistd.log | cut -c1-110
+    but: 'Toutes les macros exécutées entre minuit et 3 h, jour après jour : montre ce qui s’enchaîne à la fin de la dernière séance.'
+    detail: |
+      grep -aE → motif étendu (deux espaces avant « Executing macro »)
+      0[0-2]:[0-9]{2}:[0-9]{2} → heure entre 00:00:00 et 02:59:59
+      cut -c1-110 → coupe la ligne pour rester lisible
+    exemple: |
+      [... Nov  4 00:21:48 2026]: [PLAYER]:  Executing macro "Fin_Seance"
+      [... Nov  4 00:21:48 2026]: [PLAYER]:  Executing macro "Volume_4.0"
+      [... Nov  4 00:21:49 2026]: [PLAYER]:  Executing macro "Lumiere_50"
+    lecture: |
+      - Compare les nuits entre elles : une macro présente des nuits anciennes et **absente depuis une date précise** (ex. LampOff) indique un changement ce jour-là, côté playlist ou TMS.
+      - Pour une séance qui finit avant minuit, changer le motif d’heure (ex. `2[0-3]:`).
+      - Le format de date de ce journal est `Nov  4 00:21:48 2026` (jour sur deux caractères avec espace).
+    attention: 'Adapter le motif d’heure à l’heure réelle des fins de séance du cinéma.'
+    voir: [macros-executees, commandes-recues-du-tms]
+    mots: [fin de séance, nuit, lampoff, enchaînement, historique]
+    maj: 2026-11-06
+
+  - id: definition-d-une-macro
+    titre: Définition d’une macro
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -a -B2 -A25 "{MACRO}" /doremi/etc/macros.xml | head -100
+    but: 'Ce que fait réellement une macro : liste de ses actions (type, durée, périphérique visé).'
+    lecture: |
+      - **Fin_Seance** d’un cinéma testé : `Black` (écran noir 1 s) puis `Pause`. Une macro qui contient **Pause** arrête la lecture de la playlist.
+      - Relever si l’action `Lamp` de LampOff nomme un projecteur (`DeviceName`) comme celle de LampOn : sur le cas rencontré, LampOff n’en avait pas. Écart à signaler au N3, **sans le présenter comme la cause** : rien ne prouve qu’il joue un rôle.
+      - Une macro vide n’envoie rien.
+    attention: 'Lire seulement. Ne modifier macros.xml qu’avec l’accord du N3 et du client, après sauvegarde.'
+    voir: [macros-d-automation, cues-de-fin-de-seance-dans-une-playlist]
+    mots: [macro, macros.xml, pause, black, lamp, définition]
+    maj: 2026-11-06
+
+  - id: commandes-recues-du-tms
+    titre: Commandes reçues du TMS
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -aE "Received|LoadSPL\(|ExecuteMacroCue" /doremi/log/drmplaylistd.log | tail -40 | cut -c1-200
+    but: 'Les ordres que le serveur reçoit de l’extérieur : chargement d’une playlist (LoadSPL), pause, éjection (PauseSPL, EjectSPL), exécution d’une macro demandée (ExecuteMacroCue). Chaque ligne indique l’adresse IP de l’émetteur.'
+    exemple: |
+      [192.0.2.60]: Received PauseSPL
+      [192.0.2.60]: Received EjectSPL
+      [PLAYER]: END OF SHOW
+    lecture: |
+      - L’**adresse entre crochets** est celle de l’équipement qui envoie l’ordre : en général le TMS. Que ce soit bien le TMS du cinéma est à confirmer avec le client, ce n’est pas écrit dans le journal.
+      - Un **PauseSPL puis EjectSPL** quelques secondes après la macro de fin de séance = le TMS arrête et retire la playlist : les cues placés plus loin dans la playlist ne seront jamais joués.
+      - Ces lignes prouvent ce que le serveur **a reçu et exécuté**. Elles ne prouvent rien sur ce que fait ensuite la lampe, le gradateur ou le projecteur.
+    voir: [macros-executees, playlists-recentes, journaux-des-demons-doremi]
+    mots: [loadspl, pausespl, ejectspl, executemacrocue, tms, ordres reçus, adresse émetteur]
+    maj: 2026-11-06
+
+  - id: playlists-recentes
+    titre: Playlists récentes (SPL)
+    machine: dor
+    niveau: info
+    commande: |-
+      ls -lt --time-style=long-iso /data/playlists | head -15
+    but: 'Les playlists du serveur (fichiers XML), la plus récente en premier. Une playlist est regénérée par le TMS à chaque programmation.'
+    lecture: |
+      - Un nom de fichier = l’identifiant (UUID) de la playlist. Sa date de modification est celle du dernier chargement.
+      - Une playlist de la veille au soir est celle qui a été jouée ce soir-là : c’est elle qu’il faut ouvrir pour savoir quels cues ont été prévus.
+    voir: [cues-de-fin-de-seance-dans-une-playlist, nombre-de-lampoff-par-playlist]
+    mots: [playlist, spl, data/playlists, uuid]
+    maj: 2026-11-06
+
+  - id: cues-de-fin-de-seance-dans-une-playlist
+    titre: Cues de fin de séance dans une playlist
+    machine: dor
+    niveau: info
+    commande: |-
+      grep -anE "<Action>(Fin_Seance|LampOff|Volume_|Music|Lumiere_|Generique)" {SPL} | tail -20
+    but: 'Les cues d’automation de la fin d’une playlist, dans l’ordre du fichier, avec leur numéro de ligne.'
+    detail: |
+      grep -anE → motif étendu avec numéro de ligne (-n)
+      <Action>(…) → les actions de cue qu’on cherche (adapter la liste)
+      tail -20 → la fin du fichier, donc la fin de la séance
+    exemple: |
+      985:<Action>Fin_Seance</Action>
+      990:<Action>Volume_4.0</Action>
+      1000:<Action>Lumiere_50</Action>
+      1018:<Action>Fin_Seance</Action>
+      1023:<Action>LampOff</Action>
+    lecture: |
+      - Les cues sont dans l’**ordre du fichier**. Ici, `Fin_Seance` apparaît **deux fois** et `LampOff` seulement après la seconde : la playlist a deux blocs de fin.
+      - Si `Fin_Seance` contient une pause (voir « Définition d’une macro »), le bloc suivant n’est jamais joué quand le TMS éjecte la playlist.
+      - Compare avec une playlist plus ancienne : un seul bloc de fin avec `LampOff` dedans = configuration d’avant le changement.
+      - Pour voir les décalages dans le temps, ouvrir le fichier autour de ces lignes (balises `Offset`) avec `sed -n '975,1045p' {SPL}`.
+    voir: [definition-d-une-macro, nombre-de-lampoff-par-playlist, playlists-recentes]
+    mots: [cue, playlist, spl, fin de séance, lampoff, ordre des cues, offset]
+    maj: 2026-11-06
+
+  - id: nombre-de-lampoff-par-playlist
+    titre: LampOff dans les playlists récentes
+    machine: dor
+    niveau: info
+    commande: |-
+      cd /data/playlists ; for f in $(find . -name "*.xml" -mtime -8); do echo "$(grep -ac "<Action>LampOff" $f) | $(ls -l --time-style=long-iso $f | awk '{print $6" "$7}') | $f"; done | sort
+    but: 'Pour chaque playlist modifiée ces 8 derniers jours : combien de cues LampOff elle contient et à quelle date.'
+    detail: |
+      find . -name "*.xml" -mtime -8 → playlists modifiées il y a moins de 8 jours (le `-newermt` n’existe pas ici)
+      grep -ac → compte les lignes qui contiennent la balise
+      awk '{print $6" "$7}' → date et heure du fichier
+    lecture: |
+      - **0** = la playlist ne contient pas de LampOff. Si toutes les playlists récentes sont à 0 alors que des anciennes sont à 1, le changement vient de la façon dont la playlist est générée (TMS), pas du serveur de salle.
+      - À rapprocher de la date où la macro a disparu des journaux (« Macros exécutées en fin de soirée »).
+    voir: [une-macro-par-nuit, cues-de-fin-de-seance-dans-une-playlist]
+    mots: [lampoff, playlists, comparer, historique, changement]
+    maj: 2026-11-06

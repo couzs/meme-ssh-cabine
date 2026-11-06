@@ -183,3 +183,35 @@
   groupe: Linux
   format: host
   exemple: serveur.exemple.fr
+
+# --- Analyse de journaux ---
+- cle: MOMENT
+  libelle: Date (et heure) à chercher dans un journal
+  groupe: Analyse de journaux
+  format: moment
+  exemple: '2026-11-03 21:4'
+  aide: 'Les journaux Barco (ICMP) sont en UTC : retirer 1 h (hiver) ou 2 h (été) à l’heure vue par le client. Début d’heure ou de minute accepté : 2026-11-03 21:4 couvre 21:40 à 21:49.'
+- cle: DIAG_DIR
+  libelle: Dossier du package de diagnostic Barco, décompressé sur ton poste
+  groupe: Analyse de journaux
+  format: path
+  exemple: /home/utilisateur/diagnostic-sp2k-11s-0000000000
+
+# --- Salle & automation (suite) ---
+- cle: MACRO
+  libelle: Nom d’une macro d’automation
+  groupe: Salle & automation
+  format: film
+  exemple: Fin_Seance
+- cle: SPL
+  libelle: Fichier d’une playlist (SPL) sur le serveur de salle
+  groupe: Salle & automation
+  format: path
+  exemple: /data/playlists/00000000-0000-4000-8000-000000000001.xml
+
+# --- DCP & ingest (suite) ---
+- cle: VIDEO
+  libelle: Fichier vidéo à analyser
+  groupe: DCP & ingest
+  format: path
+  exemple: /var/lib/tms-ymagis-daemon/static/quickDcpAssets/QDCP_ORIGINAL_00000000

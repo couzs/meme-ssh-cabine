@@ -1,0 +1,35 @@
+id: pc-masque-faux
+theme: Réseau
+titre: 'Le PC joint certains équipements mais pas d’autres (masque faux)'
+quand: 'Un PC a une IP dans le bon réseau, mais certains équipements ne répondent pas au ping alors que d’autres répondent, ou que la réponse passe par la passerelle.'
+symptomes: [ping partiel, masque, 255.255.255.128, 255.255.255.0, même réseau, hors réseau, routage asymétrique, ttl]
+comprendre: |
+  Le **masque** dit quelle partie de l’adresse désigne le réseau. Avec `255.255.255.0` (/24), tout `192.0.2.0` à `192.0.2.255` est un seul réseau. Avec `255.255.255.128` (/25), il est coupé en deux : `192.0.2.0–127` d’un côté, `192.0.2.128–255` de l’autre.
+
+  Un PC en `192.0.2.241` avec un masque `/25` se croit dans `192.0.2.128–255` : il juge `192.0.2.13` ou `192.0.2.33` **hors de son réseau** et envoie le paquet à la passerelle. Les équipements, eux, en `/24`, voient le PC dans leur réseau et répondent directement. Résultat : des pings qui échouent, ou qui réussissent par un chemin étrange (aller par la passerelle, retour direct, **routage asymétrique**). La panne dépend de l’équipement visé, d’où l’impression d’un défaut aléatoire.
+copier_tout: false
+etapes:
+  - ref: ip-et-passerelle-du-pc
+    titre: IP et masque du PC
+    attendu: 'Masque 255.255.255.0 (comme les équipements). Un 255.255.255.128 ou autre est suspect'
+  - titre: Calculer la plage vue par le PC
+    machine: man
+    consigne: 'Avec un masque /25 (255.255.255.128) : dernier octet de l’IP < 128 → réseau .0 à .127 ; ≥ 128 → réseau .128 à .255. Les équipements visés sont-ils dans l’autre moitié que le PC ? Si oui, c’est le masque.'
+  - ref: table-de-routage
+    titre: Que pense le PC de la destination
+    attendu: 'Les destinations hors de la plage /25 partent vers la passerelle'
+  - ref: chemin-d-une-ip
+    titre: Chemin réel depuis le TMS (si accès)
+    attendu: 'Le chemin dit si la destination est atteinte directement ou par une passerelle'
+    lecture: 'Un ping peut réussir en passant par la passerelle malgré un masque faux : ne jamais conclure sur un seul ping.'
+  - titre: Corriger le masque
+    machine: man
+    consigne: 'Sur le PC : propriétés IPv4 de la carte → masque 255.255.255.0 (le même que les équipements). C’est une modification : la faire avec l’accord du client, et noter l’ancienne valeur dans le ticket.'
+  - ref: ip-et-passerelle-du-pc
+    titre: Contrôle du masque
+    attendu: 'Masque corrigé'
+  - ref: ping
+    titre: Retest vers un équipement qui ne répondait pas
+    attendu: '0 % de perte'
+attention: 'Un ping qui réussit malgré un masque faux ne prouve pas que la configuration est correcte (passage par la passerelle). Contrôler le masque avant toute autre piste.'
+maj: 2026-11-06

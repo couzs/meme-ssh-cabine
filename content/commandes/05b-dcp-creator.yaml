@@ -1,0 +1,134 @@
+id: dcp-creator
+titre: DCP Creator (Quick DCP)
+groupe: TMS & Linux
+intro: 'Le service cinemanext-dcp-creator crée un DCP à partir d’une vidéo déposée dans le TMS (fonction « Quick DCP ») en lançant DCP-o-matic et ffmpeg. Une génération longue peut écrire énormément de fichiers temporaires : ces fiches servent à relier un job à une panne de disque. Depuis l’ORC, les journaux du TMS sont sous /var/lib/lxc/<conteneur>/rootfs/var/log/cinemanext-dcp-creator ; depuis le TMS, sous /var/log/cinemanext-dcp-creator.'
+
+commandes:
+  - id: progression-des-jobs-quick-dcp
+    titre: Progression des jobs Quick DCP
+    machine: tms
+    niveau: info
+    commande: |-
+      L=/var/log/cinemanext-dcp-creator ; cat $L/*.log | grep -a "GenerationProgress" | awk 'NR%60==1' | cut -c1-220
+    but: 'Un point de progression environ toutes les 10 minutes (une ligne sur 60), pour chaque job de génération : heure, avancement en %, statut et identifiant du job.'
+    detail: |
+      L=… → dossier des journaux du service DCP Creator
+      cat $L/*.log → tous les journaux du service, courant et archives
+      grep -a "GenerationProgress" → les lignes de suivi d’avancement
+      awk 'NR%60==1' → ne garde qu’une ligne sur 60 pour que la sortie reste lisible
+      cut -c1-220 → coupe chaque ligne à 220 caractères
+    lecture: |
+      - Une progression qui monte régulièrement puis **reste figée à la même valeur pendant des heures** (statut RUNNING) = le job ne finit pas : à rapprocher d’un disque qui se remplit.
+      - **SUCCESS à 100 %** = job terminé normalement. **ERROR** = échec (voir la fiche « Jobs Quick DCP en erreur »).
+      - Repère l’heure du gel et compare-la à l’heure de l’arrêt de MongoDB : un écart de quelques heures est typique d’un disque qui se remplit lentement.
+    voir: [jobs-quick-dcp-en-erreur, activite-du-service-par-heure, mongodb-arrete-pour-manque-de-place]
+    mots: [quick dcp, dcp creator, progression, job, generation]
+    maj: 2026-11-06
+
+  - id: jobs-quick-dcp-en-erreur
+    titre: Jobs Quick DCP en erreur
+    machine: tms
+    niveau: info
+    commande: |-
+      L=/var/log/cinemanext-dcp-creator ; cat $L/*.log | grep -aiE "no space|enospc|disk|failed|exception" | tail -15 | cut -c1-250
+    but: 'Les erreurs du service de génération, dont « No space left on device » si le disque était plein.'
+    lecture: |
+      - **System command execution failed with code 1** : une des commandes lancées par le service (ffmpeg, DCP-o-matic) a échoué. Plusieurs lignes de suite à quelques minutes d’écart = quelqu’un réessaie un Quick DCP qui ne passe pas.
+      - **No space left on device** dans ce journal confirme la saturation du disque pendant le job.
+      - Aucune ligne « no space » ne prouve rien : quand le disque est plein, le service ne peut plus écrire son propre journal (voir « Activité du service par heure »).
+    voir: [activite-du-service-par-heure, progression-des-jobs-quick-dcp]
+    mots: [quick dcp, erreur, exception, no space]
+    maj: 2026-11-06
+
+  - id: activite-du-service-par-heure
+    titre: Activité du service par heure
+    machine: tms
+    niveau: info
+    commande: |-
+      L=/var/log/cinemanext-dcp-creator ; cat $L/*.log | cut -c1-13 | sort | uniq -c | tail -24
+    but: 'Nombre de lignes de journal écrites par heure. Un trou ou une chute brutale indique que le service n’a plus pu écrire : disque plein.'
+    detail: |
+      cut -c1-13 → ne garde que la date et l’heure (« 2026-11-03 20 »)
+      sort | uniq -c → compte les lignes pour chaque heure
+      tail -24 → les 24 dernières heures trouvées
+    exemple: |
+      1801 2026-11-03 19
+      1349 2026-11-03 20
+      1408 2026-11-03 21
+    lecture: |
+      - Un service actif écrit un nombre de lignes à peu près constant par heure. Une heure à 1349 au lieu de 1800 = une trentaine de minutes sans écriture.
+      - La reprise après la chute correspond au retour de la place (souvent après un redémarrage).
+      - Technique de preuve **sans accès à la supervision** : elle date la saturation du disque à la minute près quand aucun graphique d’espace libre n’existe.
+    voir: [progression-des-jobs-quick-dcp, mongodb-arrete-pour-manque-de-place]
+    mots: [journal, trou, disque plein, preuve, activité]
+    maj: 2026-11-06
+
+  - id: videos-quick-dcp-deposees
+    titre: Vidéos déposées pour Quick DCP
+    machine: tms
+    niveau: info
+    commande: |-
+      ls -l --time-style=long-iso /var/lib/tms-ymagis-daemon/static/quickDcpAssets | head -20
+    but: 'Les vidéos sources déposées dans le TMS pour des Quick DCP, avec leur date et leur taille.'
+    lecture: |
+      - La date d’une vidéo `QDCP_ORIGINAL_…` donne l’heure à laquelle quelqu’un a lancé un Quick DCP : à rapprocher du début d’un job et de l’heure d’une panne.
+      - Une vidéo de 2 Go ne produit pas un DCP de 2 Go : la conversion image par image peut occuper beaucoup plus de place le temps du traitement.
+    attention: 'Ne rien supprimer ici sans accord écrit du client.'
+    voir: [duree-et-format-d-une-video, progression-des-jobs-quick-dcp]
+    mots: [quick dcp, vidéo, quickDcpAssets, QDCP]
+    maj: 2026-11-06
+
+  - id: duree-et-format-d-une-video
+    titre: Durée et format d’une vidéo
+    machine: tms
+    niveau: info
+    commande: |-
+      ffprobe -hide_banner {VIDEO} 2>&1 | grep -aiE "Duration|Stream"
+    but: 'Durée, codec, définition et cadence d’une vidéo. Sert à estimer ce que sa conversion en images produit.'
+    detail: |
+      ffprobe → outil d’analyse livré avec ffmpeg (lecture seule)
+      -hide_banner → supprime l’en-tête de version
+      2>&1 | grep → ffprobe écrit sur la sortie d’erreur : on la redirige pour filtrer
+    exemple: |
+      Duration: 00:08:50.00, start: 0.000000, bitrate: 30000 kb/s
+      Stream #0:0: Video: h264, yuv420p, 1920x1080, 24 fps
+    lecture: |
+      Estimation de l’ordre de grandeur de ce que peut occuper une conversion en images non compressées : **images = durée en secondes × cadence**, puis **largeur × hauteur × 3 octets** par image. 12 720 images en 1920×1080 font environ 6 Mo chacune, soit près de 79 Go : de quoi remplir un disque de 117 Go. C’est une **hypothèse de calcul, pas une mesure** : seul un suivi de l’espace libre pendant un job la confirme.
+    voir: [videos-quick-dcp-deposees]
+    mots: [ffprobe, durée, vidéo, estimation]
+    maj: 2026-11-06
+
+  - id: gros-fichiers-modifies-recemment
+    titre: Gros fichiers modifiés récemment
+    machine: lin
+    niveau: info
+    commande: |-
+      find / -xdev -type f -mtime -2 -size +50M -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort | tail -20
+    but: 'Les fichiers de plus de 50 Mo modifiés ces deux derniers jours, avec leur date. Cherche un gros écrivain (copie, conversion, journal qui explose).'
+    detail: |
+      find / -xdev → parcourt la partition racine seulement (pas les autres montages)
+      -type f -mtime -2 → fichiers modifiés depuis moins de 2 jours
+      -size +50M → plus de 50 Mo
+      -printf … → date, taille en octets et chemin
+      2>/dev/null → cache les « permission denied »
+    lecture: |
+      - Si aucun gros fichier n’apparaît alors que le disque a été plein, le fichier responsable a déjà été supprimé (fin du job, nettoyage au redémarrage) : on ne peut plus le prouver a posteriori.
+      - Sur le TMS d’un ORC, lance-la sur l’ORC : le `find` voit aussi le conteneur (sous /var/lib/lxc).
+    attention: 'Peut durer une minute sur un gros disque. Absent de certains systèmes réduits (Doremi) : voir « Repères salle ».'
+    voir: [plus-gros-fichiers, fichiers-supprimes-encore-ouverts]
+    mots: [gros fichiers, find, récents, disque]
+    maj: 2026-11-06
+
+  - id: configuration-du-service-dcp-creator
+    titre: Où est la configuration du service ?
+    machine: tms
+    niveau: info
+    commande: |-
+      find / -xdev -name "application.properties" 2>/dev/null | grep -i dcp
+    but: 'Retrouve le fichier de paramètres du service de génération (nombre de jobs simultanés, espace minimum avant de démarrer, dossier de sortie).'
+    lecture: |
+      - Paramètres rencontrés : **minimumAvailableSpace** (espace libre minimum exigé avant un job, unité non documentée dans le fichier), **maxConcurrentTasks** (jobs en parallèle) et **threads**.
+      - On ne sait pas à quel moment ce seuil est testé (au lancement seulement, ou pendant le job) : ne pas en déduire qu’il protège le disque pendant une génération longue. Sur le cas rencontré, il n’a pas empêché la saturation (seuil de 500 dont l’unité n’est pas précisée).
+    attention: 'Lire seulement. Ce fichier est géré par l’installation : toute modification passe par le N3.'
+    mots: [application.properties, configuration, minimumAvailableSpace]
+    maj: 2026-11-06

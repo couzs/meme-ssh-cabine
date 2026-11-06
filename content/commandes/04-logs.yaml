@@ -203,3 +203,47 @@ commandes:
       [Sat Oct 18 09:12:47 2026] e1000e: eth1 NIC Link is Up 1000 Mbps Full Duplex
     lecture: '« Link is Down » puis « Up » quelques secondes après = câble ou port de switch qui décroche. Si ça se répète, changer le câble ou le port.'
     mots: [réseau, lien, link down, bond, erreurs]
+
+  - id: acces-web-externes-du-jour
+    titre: Accès web venant d’ailleurs (aujourd’hui)
+    machine: tms
+    niveau: info
+    commande: |-
+      grep -av "^127.0.0.1" /var/log/tomcat8/localhost_access_log.$(date +%F).txt | tail -25 | cut -c1-200
+    but: 'Le journal d’accès de Tomcat du jour, sans les contrôles internes de la machine : qui charge quelle page, avec quel code de retour.'
+    detail: |
+      grep -av "^127.0.0.1" → écarte les requêtes de la machine elle-même (contrôles internes toutes les 5 min)
+      localhost_access_log.$(date +%F).txt → fichier du jour (date au format 2026-11-03)
+      tail -25 → les 25 dernières requêtes
+    exemple: |
+      192.0.2.30 - - [04/Nov/2026:09:17:50 +0000] "GET /index.html HTTP/1.1" 200 1530
+      192.0.2.30 - - [04/Nov/2026:09:17:51 +0000] "GET /emergency_pause/get_status HTTP/1.1" 401 -
+    lecture: |
+      - La première colonne est l’IP du poste du client (ou d’un relais).
+      - **200** = page servie. **401** sur `emergency_pause/get_status` **avant connexion** est normal.
+      - Une connexion à l’interface est un `POST` : s'il n'y en a aucun à l'heure de l'essai du client, la requête n'arrive pas jusqu'ici (navigateur, saisie ou chemin réseau en cause). Les `POST` de `127.0.0.1` sont des contrôles internes (ex. `ensure_schedule_consistency`).
+      - L’heure du journal est en UTC dans cet exemple : la convertir avant de comparer avec l’heure donnée par le client.
+    attention: 'L’adresse que le client tape peut être un **proxy d’accès** devant le TMS. Une requête qui n’apparaît pas ici ne prouve pas que le TMS est en cause.'
+    voir: [connexion-web-en-direct, comptes-locaux-du-tms, tomcat-en-direct]
+    mots: [access log, localhost_access_log, connexion, login, post, 401, proxy]
+    maj: 2026-11-06
+
+  - id: connexion-web-en-direct
+    titre: Suivre la connexion d’un poste en direct
+    machine: tms
+    niveau: info
+    commande: |-
+      tail -F /var/log/tomcat8/localhost_access_log.$(date +%F).txt | grep -a --line-buffered "{IP}" | grep -av --line-buffered -E "\.(js|css|png|gif|woff|html|jpg|ico)"
+    but: 'Affiche en direct les requêtes d’un poste (IP du client) sans les fichiers de page, pour voir ce qui se passe quand il clique sur « Sign in ». À lancer, puis demander au client de cliquer **une seule fois**. Arrêt avec Ctrl+C.'
+    detail: |
+      tail -F → suit la fin du fichier en direct
+      grep -a --line-buffered "{IP}" → ne garde que les requêtes du poste du client, ligne par ligne
+      grep -av -E "\.(js|css…)" → retire les fichiers statiques (scripts, styles, images)
+    lecture: |
+      - Une requête avec **401** ou **403** : le TMS reçoit la demande et refuse l’identifiant ou le mot de passe.
+      - Une requête **200** suivie d’un retour sur la page de connexion : problème de session ou de cookie (essayer un autre navigateur ou une fenêtre privée).
+      - **Aucune requête** : la demande n’arrive pas au TMS : navigateur, proxy d’accès devant le TMS, ou chemin réseau.
+    attention: 'Si l’adresse du client est derrière un proxy, l’IP vue ici est celle du proxy : le filtrer sur cette IP, pas sur celle du poste.'
+    voir: [acces-web-externes-du-jour, comptes-locaux-du-tms]
+    mots: [connexion, sign in, fenêtre qui vibre, 401, 403, live, tail -F]
+    maj: 2026-11-06

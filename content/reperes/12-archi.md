@@ -33,3 +33,15 @@ Quand le TMS « ne voit plus » une salle, on remonte ce chemin : l’IP virtuel
 - Les règles SNAT réécrivent la source en IP de l’ORC : deux IP virtuelles vers la même IP réelle ne posent pas de problème.
 - Gestion et ingest peuvent partager le même switch : la même MAC vue sur eth1 et bond0 est normale.
 - Fichiers gérés par Puppet : toute modification locale est à faire reporter par le N3.
+
+### Le TMS peut être un conteneur de l’ORC
+
+- Sur certains sites, le TMS (et le YMS) tournent dans des **conteneurs LXC** hébergés par l’ORC. `lxc-ls -f` sur l’ORC les liste ; leurs fichiers sont sous `/var/lib/lxc/<nom>/rootfs/`.
+- Conteneurs et hôte **partagent la même partition** : un disque rempli côté ORC arrête MongoDB dans le TMS (voir la procédure « MongoDB arrêté : disque saturé temporairement »).
+- Les conteneurs en `AUTOSTART = YES` redémarrent seuls après un reboot de l’ORC.
+
+### L’ORC n’a pas systemd
+
+- `systemctl` donne « command not found » : c’est normal. Pour redémarrer la machine : `reboot` (ou `shutdown -r now`, `init 6`). Pour un service : `service <nom> status` ou `/etc/init.d/<nom> status`.
+- Le TMS (conteneur Ubuntu) utilise, lui, systemd : `systemctl` y fonctionne. Vérifier le nom de la machine dans l’invite avant de taper.
+- Le service MongoDB du TMS s’appelle **`mongodb`**, pas `mongod`.

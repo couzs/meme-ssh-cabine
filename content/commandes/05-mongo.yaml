@@ -103,3 +103,55 @@ commandes:
     exemple: |
       3.2.22
     mots: [version, mongo]
+
+  - id: mongodb-arrete-pour-manque-de-place
+    titre: MongoDB arrêté pour manque de place ?
+    machine: tms
+    niveau: info
+    commande: |-
+      zcat -f $(ls -tr /var/log/mongodb/mongod.log* 2>/dev/null) 2>/dev/null | grep -aiE "no space|fatal assertion|shutting down|out of memory|SIGTERM|SIGKILL" | tail -15
+    but: 'Retrouve dans le journal de MongoDB (archives comprises) les arrêts brutaux et leur cause, avec l’heure exacte.'
+    detail: |
+      zcat -f → lit les fichiers, qu’ils soient compressés (.gz) ou non
+      ls -tr /var/log/mongodb/mongod.log* → le journal courant et ses archives, du plus ancien au plus récent
+      grep -aiE → cherche ces motifs sans tenir compte des majuscules (-a : fichier lu comme du texte)
+      tail -15 → les 15 dernières lignes trouvées
+    exemple: |
+      (forme indicative : seuls les mots-clés comptent)
+      2026-10-30T21:07:12.431+0100 E STORAGE  [thread1] WiredTiger error (28) [...] No space left on device
+      2026-10-30T21:07:12.433+0100 I -        [thread1] Fatal Assertion 28558
+    lecture: |
+      - **No space left on device** puis **Fatal Assertion 28558** (message WiredTiger, erreur 28) : MongoDB n’a plus pu écrire sur le disque et s’est arrêté lui-même. Sans MongoDB, la page web du TMS ne s’affiche plus.
+      - L’heure donne le moment exact où le disque s’est rempli. À comparer avec ce qui tournait à ce moment-là (génération de DCP, ingest, copie).
+      - **SIGTERM / shutting down** sans « no space » = arrêt demandé (redémarrage, coupure), pas une saturation.
+      - `OutOfMemory` ou `SIGKILL` = manque de mémoire (voir `journal-du-noyau`).
+    attendu: 'Aucune ligne si la base n’a pas été arrêtée'
+    si_ko: 'Lignes « no space » : procédure « MongoDB arrêté : disque saturé temporairement ». Le disque peut être à 20 % le lendemain : il s’est rempli puis libéré (reboot, nettoyage des temporaires).'
+    attention: 'Le disque qui paraît normal aujourd’hui ne prouve rien : c’est l’heure de l’erreur qui compte.'
+    voir: [mongo-disque-sature, espace-disque, journal-du-noyau]
+    mots: [mongo, wiredtiger, erreur 28, fatal assertion, disque plein, no space left]
+    maj: 2026-11-06
+
+  - id: comptes-locaux-du-tms
+    titre: Comptes locaux du TMS (sans mot de passe)
+    machine: tms
+    niveau: info
+    commande: |-
+      mongo ytms --quiet --eval 'db.accounts.find({}, {password:0}).forEach(function(x){printjson(x);})'
+    but: 'Liste les identifiants de connexion locaux du TMS et leurs rôles, **sans** afficher le mot de passe (le champ password est exclu de la requête).'
+    detail: |
+      mongo ytms --quiet → ouvre la base du TMS, sans bannière
+      db.accounts.find({}, {password:0}) → tous les comptes, sauf le champ password
+      forEach(… printjson) → affiche chaque compte
+    exemple: |
+      (forme indicative : les valeurs de rôle varient)
+      { "_id" : "identifiant1", "roles" : [ "…" ] }
+      { "_id" : "identifiant2", "roles" : [ "…" ] }
+    lecture: |
+      - L’**identifiant de connexion est le champ `_id`**. Sur le cas rencontré, il n’y avait que 4 comptes locaux (admin, guest, operator, support) et aucune adresse e-mail.
+      - Un client qui se connecte avec son adresse e-mail alors qu’aucun compte n’en porte une peut voir la fenêtre vibrer sans message. À confirmer avec lui : quel identifiant lui a-t-on donné ?
+      - Un TMS peut aussi être atteint par un lien d’accès intermédiaire (proxy) qui a ses propres comptes : savoir lequel il utilise avant de conclure.
+    attention: 'Ne jamais afficher, copier ni coller les hash de mot de passe, et ne pas modifier un compte depuis la base : une réinitialisation passe par le N3.'
+    voir: [acces-web-externes-du-jour, connexion-web-en-direct]
+    mots: [comptes, accounts, identifiant, login, mot de passe oublié, utilisateurs]
+    maj: 2026-11-06

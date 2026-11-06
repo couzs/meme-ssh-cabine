@@ -1,5 +1,16 @@
 # Journal des nouveautés, affiché dans l’application (le plus récent en premier).
 # Ajoute une entrée à chaque modification utile pour l’équipe.
+- date: 2026-11-06
+  titre: 'Pannes vues le 04/11 : disque saturé, lampe, lumières, masque, package Barco'
+  texte: |
+    - Nouvelle procédure « MongoDB arrêté : disque saturé temporairement » : TMS web mort puis reboot qui « règle tout », preuve par l'heure des erreurs, jobs Quick DCP, activité du journal par heure, conteneurs de l'ORC. Nouvelle rubrique « DCP Creator (Quick DCP) ».
+    - Redémarrage : « Redémarrer l'ORC » (l'ORC n'a pas systemd, c'est `reboot`), « Conteneurs de l'ORC (LXC) », « Après un reboot de l'ORC ».
+    - Nouvelle procédure « Lampe qui ne s'éteint pas en fin de journée » et fiches Doremi : macros exécutées, nuit par nuit, ordres reçus du TMS, définition d'une macro, ordre des cues dans une playlist (SPL).
+    - Nouvelle procédure « Lumières de salle rallumées pendant la séance (Barco) » et rubrique « Package de diagnostic Barco » : ce qui est lisible, heures en UTC, cue `[SHOW]` ou `[USER:…]`, qui a envoyé un cue.
+    - Nouvelle procédure « Le PC joint certains équipements mais pas d'autres (masque faux) » et un encadré /24 contre /25 dans « Le réseau en 5 minutes ».
+    - Nouvelle procédure « Connexion à l'interface du TMS refusée » et fiches : accès web du jour, suivi en direct d'un poste, comptes locaux sans mot de passe.
+    - Repères : section « Répondre au client à partir de journaux » (prouvé contre déduit, commande contre effet, heures à convertir), « Avant de redémarrer », conteneurs LXC, commandes absentes du Doremi, package Barco.
+    - Nouveau format de variable `moment`, nouvelles variables MOMENT, DIAG_DIR, MACRO, SPL, VIDEO ; cinq règles ajoutées à « Analyser ».
 - date: 2026-10-28
   titre: NAS QNAP à distance par un tunnel SSH
   texte: |
